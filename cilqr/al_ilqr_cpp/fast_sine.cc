@@ -4,11 +4,13 @@
 
 // 将角度转换为 [0, 2π] 范围内
 inline double normalize_angle(double angle_rad) {
-    return fmod(fmod(angle_rad, TWO_PI) + TWO_PI, TWO_PI);
+    angle_rad = angle_rad - static_cast<int>(angle_rad / TWO_PI) * TWO_PI;
+    return angle_rad > 0 ? angle_rad : angle_rad + TWO_PI;
 }
 
 // 快速 sin 计算
 double fast_sin(double angle_rad) {
+    double original_angle = angle_rad;
     angle_rad = normalize_angle(angle_rad);
 
     bool flip = false;
@@ -24,8 +26,12 @@ double fast_sin(double angle_rad) {
         index = static_cast<int>((PI - angle_rad) * TABLE_SIZE / HALF_PI);
     }
 
-    if (index > TABLE_SIZE) {
-        index = TABLE_SIZE;
+    if (index > TABLE_SIZE - 1) {
+        index = TABLE_SIZE - 1;
+    }
+
+    if (index < 0) {
+        index = 0;
     }
 
     double sin_value = static_cast<double>(SIN_TABLE[index]);

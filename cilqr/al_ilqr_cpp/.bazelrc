@@ -1,0 +1,6 @@
+build:debug --compilation_mode=dbg
+build:opt --copt=-O3
+build:opt --copt=-march=native
+build:opt --cxxopt=-O3
+build:opt --cxxopt=-march=native
+build:opt --linkopt=-O3
