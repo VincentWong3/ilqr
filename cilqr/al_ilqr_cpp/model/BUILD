@@ -54,40 +54,40 @@ cc_library(
 )
 
 cc_library(
-    name = "fast_ilqr_node",
+    name = "new_ilqr_node",
     hdrs = [
-        "fast_ilqr_node.h",
+        "new_ilqr_node.h",
     ],
     copts = ["-O3", "-march=native"],
     deps = [
         "@eigen",
+        "//constraints:box_constraints",
+        ":parallel_compution_function",
     ],
     visibility = ["//visibility:public"],
 )
 
 cc_library(
-    name = "fast_full_bicycle_dynamic_node",
-    srcs = ["fast_full_bicycle_dynamic_node.cc"],
+    name = "new_bicycle_node",
     hdrs = [
-        "fast_full_bicycle_dynamic_node.h",
+        "new_bicycle_node.h",
     ],
     copts = ["-O3", "-march=native"],
     deps = [
-        ":fast_ilqr_node",
-        "//:fast_sine",
+        "@eigen",
+        "//constraints:box_constraints",
+        ":new_ilqr_node",
     ],
     visibility = ["//visibility:public"],
 )
 
-cc_binary(
-    name = "test_models",
-    srcs = [
-        "test_models.cc",
+cc_library(
+    name = "parallel_compution_function",
+    hdrs = [
+        "parallel_compution_function.h",
     ],
     copts = ["-O3", "-march=native"],
     deps = [
-        ":fast_full_bicycle_dynamic_node",
-        ":all_models",
         "@eigen",
     ],
     visibility = ["//visibility:public"],

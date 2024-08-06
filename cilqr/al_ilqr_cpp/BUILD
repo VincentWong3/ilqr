@@ -23,53 +23,41 @@ cc_binary(
     ],
 )
 
-cc_library(
-    name = "fast_sine",
-    srcs = ["fast_sine.cc"],
-    hdrs = ["fast_sine.h"],
-    copts = ["-O3", "-march=native"],
-    visibility = ["//visibility:public"],
-)
-
 cc_binary(
-    name = "no_alias",
-    srcs = ["test_no_alias.cc"],
-    copts = ["-O3", "-march=native"],
+    name = "test_new_al_ilqr_signal",
+    srcs = ["test_new_al_ilqr_signal.cc"],
     deps = [
-        "@eigen",
-        ],
-)
-
-cc_binary(
-    name = "test_fast_sine",
-    srcs = ["test_fast_sine.cc"],
-    deps = [
-        ":fast_sine",
+        "//model:new_bicycle_node",
+        "//constraints:box_constraints",
+        ":new_al_ilqr",
     ],
-    copts = ["-O3", "-march=native"],
+    copts = ["-O3", "-march=native", "-faligned-new"],
 )
 
 cc_library(
-    name = "fast_al_ilqr",
+    name = "new_al_ilqr",
     hdrs = [
-        "fast_al_ilqr.h", 
+        "new_al_ilqr.h", 
         ],
-    copts = ["-O2", "-march=native"],
     deps = [
-        "@eigen",
-        "//model:all_models",
-        "//model:fast_full_bicycle_dynamic_node",
-        ],
+        "//model:new_ilqr_node",
+        "//model:new_bicycle_node",
+        "//constraints:box_constraints",
+    ],
+    copts = ["-O3", "-march=native"],
 )
 
+
+
 cc_binary(
-    name = "test_fast_al_ilqr",
-    srcs = ["test_fast_al_ilqr.cc"],
+    name = "test_new_al_ilqr",
+    srcs = ["test_new_al_ilqr.cc"],
     deps = [
-        ":fast_sine",
-        ":fast_al_ilqr",
+        ":new_al_ilqr",
+        "//model:new_bicycle_node",
+        "//constraints:box_constraints",
     ],
-    copts = ["-O2", "-march=native"],
+    copts = ["-O3", "-march=native", "-faligned-new"],
 )
 
 
