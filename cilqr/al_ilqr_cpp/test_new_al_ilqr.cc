@@ -24,8 +24,8 @@ std::vector<Eigen::VectorXd> generateSShapeGoalFull(double v, double dt, int num
 
 int main() {
     double v = 10;
-    double dt = 0.2;
-    double L = 1;
+    double dt = 0.1;
+    double L = 3.0;
     int num_points = 50;
     std::vector<Eigen::VectorXd> goal_list_fast = generateSShapeGoalFull(v, dt, num_points);
 

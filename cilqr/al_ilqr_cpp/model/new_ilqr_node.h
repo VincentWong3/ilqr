@@ -42,6 +42,9 @@ public:
 
     virtual double cost(const Eigen::Ref<const VectorState>& state, const Eigen::Ref<const VectorControl>& control) = 0;
 
+    virtual Eigen::Matrix<double, PARALLEL_NUM, 1> parallel_cost(const Eigen::Ref<const Eigen::Matrix<double, state_dim, PARALLEL_NUM>>& state, 
+                                                                 const Eigen::Ref<const Eigen::Matrix<double, control_dim, PARALLEL_NUM>>& control) = 0;
+
     virtual std::pair<MatrixA, MatrixB> dynamics_jacobian(const Eigen::Ref<const VectorState>& state,
                                                           const Eigen::Ref<const VectorControl>& control) const = 0;
 

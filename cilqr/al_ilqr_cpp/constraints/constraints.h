@@ -10,6 +10,8 @@
 #include <array>
 #include <algorithm>
 
+#define PARALLEL_NUM 5
+
 template <int state_dim, int control_dim, int constraint_dim>
 class Constraints {
 public:
@@ -48,6 +50,9 @@ public:
     static constexpr int get_constraint_dim() {
         return constraint_dim;
     }
+
+    virtual Eigen::Matrix<double, constraint_dim, PARALLEL_NUM> parallel_constraints(const Eigen::Ref<const Eigen::Matrix<double, state_dim, PARALLEL_NUM>>& x, 
+                                                 const Eigen::Ref<const Eigen::Matrix<double, control_dim, PARALLEL_NUM>>& u) const = 0;
 
     virtual Eigen::Matrix<double, constraint_dim, 1> constraints(const Eigen::Ref<const Eigen::Matrix<double, state_dim, 1>>& x, 
                                                                const Eigen::Ref<const Eigen::Matrix<double, control_dim, 1>>& u) const = 0;
@@ -101,6 +106,24 @@ public:
             return 0.5 / mu_ * (lambda_proj_.transpose() * lambda_proj_ - lambda_.transpose() * lambda_).value();
         }
     }
+
+
+    Eigen::Matrix<double, PARALLEL_NUM, 1> parallel_augmented_lagrangian_cost(const Eigen::Ref<const Eigen::Matrix<double, state_dim, PARALLEL_NUM>>& x, 
+                                                 const Eigen::Ref<const Eigen::Matrix<double, control_dim, PARALLEL_NUM>>& u) {
+        Eigen::Matrix<double, constraint_dim, PARALLEL_NUM> c;
+        c = parallel_constraints(x, u);
+        Eigen::Matrix<double, constraint_dim, PARALLEL_NUM> parallel_lambda = lambda_.replicate(1, PARALLEL_NUM);
+        Eigen::Matrix<double, constraint_dim, PARALLEL_NUM> proj = (parallel_lambda - mu_ * c).cwiseMin(0);
+        Eigen::Matrix<double, PARALLEL_NUM, 1> ans;
+        for (int index = 0; index < PARALLEL_NUM; ++index) {
+            auto temp1 = proj.col(index);
+            ans[index] = (temp1.transpose() * temp1 - lambda_.transpose() * lambda_).value();
+        }
+        ans = 0.5 / mu_ * ans;
+       return ans;
+    }
+
+    
 
     std::pair<Eigen::Matrix<double, state_dim, 1>, Eigen::Matrix<double, control_dim, 1>> 
     augmented_lagrangian_jacobian(const Eigen::Ref<const Eigen::Matrix<double, state_dim, 1>>& x, 

@@ -14,7 +14,17 @@ public:
 
     Eigen::Matrix<double, constraint_dim, 1> constraints(const Eigen::Ref<const Eigen::Matrix<double, state_dim, 1>>& x, 
                                                        const Eigen::Ref<const Eigen::Matrix<double, control_dim, 1>>& u) const override {
-        return A_ * x + B_ * u + C_;
+        Eigen::Matrix<double, constraint_dim, 1> Ax = A_ * x;
+        Eigen::Matrix<double, constraint_dim, 1> Bu = B_ * u;
+        return Ax + Bu + C_;
+    }
+
+    Eigen::Matrix<double, constraint_dim, PARALLEL_NUM> parallel_constraints(const Eigen::Ref<const Eigen::Matrix<double, state_dim, PARALLEL_NUM>>& x, 
+                                                 const Eigen::Ref<const Eigen::Matrix<double, control_dim, PARALLEL_NUM>>& u) const {
+        Eigen::Matrix<double, constraint_dim, PARALLEL_NUM> C_parallel = C_.replicate(1, PARALLEL_NUM);
+        Eigen::Matrix<double, constraint_dim, PARALLEL_NUM> Ax = A_ * x;
+        Eigen::Matrix<double, constraint_dim, PARALLEL_NUM> Bu = B_ * u;
+        return Ax + Bu + C_parallel;
     }
 
     std::pair<Eigen::Matrix<double, constraint_dim, state_dim>, Eigen::Matrix<double, constraint_dim, control_dim>> 

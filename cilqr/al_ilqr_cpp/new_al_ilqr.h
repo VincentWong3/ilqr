@@ -9,7 +9,6 @@
 #include <iostream>
 #include <chrono>
 
-#define PARALLEL_NUM 5
 
 template<int state_dim, int control_dim, int horizon>
 class NewALILQR {
@@ -33,7 +32,7 @@ public:
 
     void UpdateTrajectoryAndCostList(double alpha);
 
-    void ParallelLinearSearch(double alpha);
+    void ParallelLinearSearch(double alpha, double& best_alpha, double& best_cost);
 
     Eigen::Matrix<double, state_dim, PARALLEL_NUM> State_Dot(const Eigen::Matrix<double, state_dim, PARALLEL_NUM>& x,
                                                              const Eigen::Matrix<double, control_dim, PARALLEL_NUM>& u);
@@ -178,11 +177,11 @@ void NewALILQR<state_dim, control_dim, horizon>::CalcDerivatives() {
     cost_augmented_lagrangian_jacobian_x_list_[horizon] = ilqr_nodes_[horizon]->cost_jacobian(x_end, zero_control_).first;
     cost_augmented_lagrangian_hessian_x_list_[horizon] = ilqr_nodes_[horizon]->cost_hessian(x_end, zero_control_).first;
     
-    auto start = std::chrono::high_resolution_clock::now();
+    // auto start = std::chrono::high_resolution_clock::now();
     CalcDerivatives(0, horizon - 1);
-    auto end = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double> CalcDerivatives_duration = std::chrono::duration_cast<std::chrono::duration<double>>(end - start);
-    std::cout << "calc der " << CalcDerivatives_duration.count() << "seconds" << std::endl;
+    // auto end = std::chrono::high_resolution_clock::now();
+    // std::chrono::duration<double> CalcDerivatives_duration = std::chrono::duration_cast<std::chrono::duration<double>>(end - start);
+    // std::cout << "calc der " << CalcDerivatives_duration.count() << "seconds" << std::endl;
 }
 
 template<int state_dim, int control_dim, int horizon>
@@ -214,7 +213,7 @@ Eigen::Matrix<double, state_dim, PARALLEL_NUM> NewALILQR<state_dim, control_dim,
 
     Eigen::Matrix<double, 6, PARALLEL_NUM> answer;
     answer.row(0) = v_cos_theta_array.matrix();
-    answer.row(1) = v_sin_theta_array.    matrix();
+    answer.row(1) = v_sin_theta_array.matrix();
     answer.row(2) = v_tan_delta_array_divide_L.matrix();
     answer.row(3) = u.row(0);
     answer.row(4) = a_list_matrix_raw;
@@ -223,7 +222,8 @@ Eigen::Matrix<double, state_dim, PARALLEL_NUM> NewALILQR<state_dim, control_dim,
 }
 
 template<int state_dim, int control_dim, int horizon>
-void NewALILQR<state_dim, control_dim, horizon>::ParallelLinearSearch(double alpha) {
+void NewALILQR<state_dim, control_dim, horizon>::ParallelLinearSearch(double alpha, double& best_alpha, double& best_cost) {
+    auto preprocess_start = std::chrono::high_resolution_clock::now();
     auto x_list_raw = x_list_;
     auto k_forward = k_list_;
 
@@ -233,6 +233,7 @@ void NewALILQR<state_dim, control_dim, horizon>::ParallelLinearSearch(double alp
         alpha_vector[index] = alpha;
         alpha /= 2.0;
     }
+    Eigen::Array<double, 2, PARALLEL_NUM> real_alpha = (alpha_vector.transpose().replicate(control_dim, 1)).array();
     
     Eigen::Matrix<double, PARALLEL_NUM, PARALLEL_NUM> alpha_matrix = alpha_vector.asDiagonal();
 
@@ -248,18 +249,37 @@ void NewALILQR<state_dim, control_dim, horizon>::ParallelLinearSearch(double alp
 
     Eigen::Matrix<double, control_dim, PARALLEL_NUM> u_new;
 
+    Eigen::Matrix<double, PARALLEL_NUM, 1> parallel_cost_list_;
+
+    parallel_cost_list_.setZero();
+
+    Eigen::Matrix<double, PARALLEL_NUM, 1> one_cost_list;
+
+    auto loop_start = std::chrono::high_resolution_clock::now();
+
+    Eigen::Matrix<double, 10, 1>  loop_count;
+    loop_count.setZero();
+
 
     for (int index = 0; index < horizon; index++) {
         x_old = x_list_raw.col(index).replicate(1, PARALLEL_NUM);
         u_old = u_list_.col(index).replicate(1, PARALLEL_NUM);
-        k_one = k_forward[index].replicate(1, PARALLEL_NUM) * alpha_matrix;
+        k_one = k_forward[index].replicate(1, PARALLEL_NUM);
+        k_one = (k_one.array() * real_alpha).matrix();
         u_new = u_old + K_list_[index] * (x_new - x_old) + k_one;
+        one_cost_list = ilqr_nodes_[index]->parallel_cost(x_new, u_new);
+        parallel_cost_list_ += one_cost_list;
         auto x_dot = State_Dot(x_new, u_new);
         auto x_mid = x_new + x_dot * 0.05;
         auto x_dot_mid = State_Dot(x_mid, u_new);
-        x_new = x_new + 0.1 * x_dot_mid;
+        x_new = x_new + x_dot_mid * 0.1;
     }
-    
+    one_cost_list = ilqr_nodes_[horizon]->parallel_cost(x_new, zero_control_.replicate(1, PARALLEL_NUM));
+    parallel_cost_list_ += one_cost_list;
+    Eigen::Index min_index;
+    best_cost = parallel_cost_list_.minCoeff(&min_index);
+    int real_index = static_cast<int>(min_index);
+    best_alpha = alpha_matrix(real_index, real_index);
 }
 
 template<int state_dim, int control_dim, int horizon>
@@ -310,12 +330,15 @@ void NewALILQR<state_dim, control_dim, horizon>::Forward() {
     pre_u_list_ = u_list_;
     auto pre_cost_list_ = cost_list_;
     double alpha = 1.0;
+    double best_alpha = 1.0;
+    double best_cost = 0.0;
 
-    auto para_start = std::chrono::high_resolution_clock::now();
-    ParallelLinearSearch(alpha);
-    auto para_end = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double> CalcDerivatives_duration = std::chrono::duration_cast<std::chrono::duration<double>>(para_end - para_start);
-    std::cout << "parallel " << CalcDerivatives_duration.count() << "seconds" << std::endl;
+    // auto para_start = std::chrono::high_resolution_clock::now();
+    alpha = best_alpha;
+    // auto para_end = std::chrono::high_resolution_clock::now();
+    // std::chrono::duration<double> CalcDerivatives_duration = std::chrono::duration_cast<std::chrono::duration<double>>(para_end - para_start);
+    // std::cout << "parallel " << CalcDerivatives_duration.count() << "seconds" << std::endl;
+    // std::cout << "best_alpha " << best_alpha << std::endl;
     // auto para_start = std::chrono::high_resolution_clock::now;
     
     // auto para_end = std::chrono::high_resolution_clock::now;
@@ -326,8 +349,8 @@ void NewALILQR<state_dim, control_dim, horizon>::Forward() {
     if (std::fabs(deltaV_linear_) < 0.2F) {
         return;
     }
-    for (int index = 0; index < 20; ++index) {
-        std::cout << "index \n" << index << std::endl;
+
+    for (int index = 0; index < 10; ++index) {
         UpdateTrajectoryAndCostList(alpha);
         new_cost = computeTotalCost();
         if (new_cost < old_cost) {
@@ -337,10 +360,16 @@ void NewALILQR<state_dim, control_dim, horizon>::Forward() {
         x_list_ = pre_x_list_;
         u_list_ = pre_u_list_;
     }
-    if (new_cost >= old_cost) { 
-        x_list_ = pre_x_list_;
-        u_list_ = pre_u_list_;
-        cost_list_ = pre_cost_list_;
+    if (new_cost >= old_cost) {
+        ParallelLinearSearch(alpha, best_alpha, best_cost);
+        if (best_cost >= old_cost) {
+            x_list_ = pre_x_list_;
+            u_list_ = pre_u_list_;
+            cost_list_ = pre_cost_list_;
+        } else {
+          UpdateTrajectoryAndCostList(best_alpha);
+          new_cost = best_cost;
+        }
     }
 }
 
@@ -372,11 +401,11 @@ void NewALILQR<state_dim, control_dim, horizon>::ILQRProcess(int max_iter, doubl
         //<double> Backward_duration = duration_cast<duration<double>>(end_Backward - start_Backward);
         //std::cout << "Backward took " << Backward_duration.count() << " seconds" << std::endl;
 
-        auto start_Forward = high_resolution_clock::now();
+        // auto start_Forward = high_resolution_clock::now();
         Forward();
-        auto end_Forward = high_resolution_clock::now();
-        duration<double> Forward_duration = duration_cast<duration<double>>(end_Forward - start_Forward);
-        std::cout << "Forward took " << Forward_duration.count() << " seconds" << std::endl;
+        // auto end_Forward = high_resolution_clock::now();
+        // duration<double> Forward_duration = duration_cast<duration<double>>(end_Forward - start_Forward);
+        // std::cout << "Forward took " << Forward_duration.count() << " seconds" << std::endl;
 
         double new_cost = cost_list_.sum();
 
@@ -408,15 +437,15 @@ void NewALILQR<state_dim, control_dim, horizon>::optimize(int max_outer_iter, in
     auto start_optimize = high_resolution_clock::now();
 
     linearizedInitialGuess();
-    for (int index = 0; index < 10; ++index) {
-        auto start_ILQR = high_resolution_clock::now();
+    for (int index = 0; index < max_outer_iter; ++index) {
+        // auto start_ILQR = high_resolution_clock::now();
         ILQRProcess(max_inner_iter, 1e-3);
-        auto end_ILQR = high_resolution_clock::now();
-        duration<double> ILQR_duration = duration_cast<duration<double>>(end_ILQR - start_ILQR);
-        std::cout << "ILQRProcess took " << ILQR_duration.count() << " seconds" << std::endl;
+        // auto end_ILQR = high_resolution_clock::now();
+        // duration<double> ILQR_duration = duration_cast<duration<double>>(end_ILQR - start_ILQR);
+        // std::cout << "ILQRProcess took " << ILQR_duration.count() << " seconds" << std::endl;
 
         double inner_violation = ComputeConstraintViolation();
-        std::cout << "inner_violation" << inner_violation << std::endl;
+        // std::cout << "inner_violation" << inner_violation << std::endl;
         if (inner_violation < max_violation) {
             break;
         } else {

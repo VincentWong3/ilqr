@@ -156,11 +156,36 @@ public:
 
     double cost(const Eigen::Ref<const VectorState>& state, const Eigen::Ref<const VectorControl>& control) override {
         VectorState state_error = state - this->goal_;
-        double state_cost = (state_error.transpose() * Q_ * state_error).value();
-        double control_cost = (control.transpose() * R_ * control).value();
+        Eigen::Array<double, 6, 1> Q_array = (Q_.diagonal()).array();
+        Eigen::Array<double, 6, 1> error_array = state_error.array();
+        Eigen::Array<double, 2, 1> R_array = (R_.diagonal()).array();
+        Eigen::Array<double, 2, 1> control_array = control.array();
+        Eigen::Matrix<double, 6, 1> new_error = (error_array * Q_array).matrix();
+        Eigen::Matrix<double, 2, 1> new_control = (R_array * control_array).matrix();
+        double state_cost = (new_error.transpose() * state_error).value();
+        double control_cost = (new_control.transpose() * control).value();
         double constraints_cost = constraints_.augmented_lagrangian_cost(state, control);
 
         return state_cost + control_cost + constraints_cost;
+    }
+
+    Eigen::Matrix<double, PARALLEL_NUM, 1> parallel_cost(const Eigen::Ref<const Eigen::Matrix<double, 6, PARALLEL_NUM>>& state, 
+                                                         const Eigen::Ref<const Eigen::Matrix<double, 2, PARALLEL_NUM>>& control) override {
+        Eigen::Matrix<double, 6, PARALLEL_NUM> error = state - this->goal_.replicate(1, PARALLEL_NUM);
+        Eigen::Array<double, 6, PARALLEL_NUM> Q_array = (Q_.diagonal().replicate(1, PARALLEL_NUM)).array();
+        Eigen::Array<double, 6, PARALLEL_NUM> error_array = error.array();
+        Eigen::Array<double, 2, PARALLEL_NUM> R_array = (R_.diagonal().replicate(1, PARALLEL_NUM)).array();
+        Eigen::Array<double, 2, PARALLEL_NUM> control_array = control.array();
+        Eigen::Matrix<double, 6, PARALLEL_NUM> new_error = (error_array * Q_array).matrix();
+        Eigen::Matrix<double, 2, PARALLEL_NUM> new_control = (R_array * control_array).matrix();
+        Eigen::Matrix<double, PARALLEL_NUM, 1> ans1;
+        for (int index = 0; index < PARALLEL_NUM; ++index) {
+            auto temp1 = new_error.col(index);
+            auto temp2 = new_control.col(index);
+            ans1[index] = (temp1.transpose() * error.col(index) + temp2.transpose() * control.col(index)).value();
+        }
+        Eigen::Matrix<double, PARALLEL_NUM, 1> ans2 = constraints_.parallel_augmented_lagrangian_cost(state, control);
+        return ans1 + ans2;
     }
 
     std::pair<Eigen::Matrix<double, 6, 1>, Eigen::Matrix<double, 2, 1>> 

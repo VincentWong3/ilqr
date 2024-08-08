@@ -94,9 +94,10 @@ int main() {
     }
 
     
-
+    double best_alpha = 1.0;
+    double best_cost = 0.0;
     auto multi_start = std::chrono::high_resolution_clock::now();
-    solver.ParallelLinearSearch(alpha);
+    solver.ParallelLinearSearch(alpha, best_alpha, best_cost);
     auto multi_end = std::chrono::high_resolution_clock::now();
 
     std::chrono::duration<double> multi_count = std::chrono::duration<double>(multi_end - multi_start);
