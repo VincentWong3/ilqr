@@ -115,7 +115,7 @@ class FullBicycleDynamicNode(ILQRNode):
         control_cost = self.control.T @ self.R @ self.control
         self.update_Imu()
         constraints = self.constraints()
-        constraint_cost = self.lambda_.T @ constraints + 0.5 * self.mu * constraints.T @ self.Imu @ constraints
+        constraint_cost = self.lambda_.T @ constraints + 0.5 * constraints.T @ self.Imu @ constraints
         return state_cost + control_cost + constraint_cost
 
     def cost_jacobian(self):
