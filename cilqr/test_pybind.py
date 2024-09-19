@@ -66,12 +66,12 @@ init_state = np.array([0, 0, 0, 0, v, 0])
 
 
 # 创建 NewALILQR 实例
-al_ilqr = ilqr_pybind.NewALILQR6_2_50(ilqr_nodes, init_state, 50)
+al_ilqr = ilqr_pybind.NewALILQR6_2(ilqr_nodes, init_state)
 
 # 设置优化参数
 max_outer_iter = 50
 max_inner_iter = 100
-max_violation = 1e-3
+max_violation = 1e-4
 
 # 调用 optimize 函数
 al_ilqr.optimize(max_outer_iter, max_inner_iter, max_violation)

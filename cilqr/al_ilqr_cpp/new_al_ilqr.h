@@ -2,15 +2,17 @@
 #define NEW_ALILQR_H
 
 #include <array>
+#include <vector>
 #include <Eigen/Dense>
 #include <tuple>
+#include <memory>
 #include "model/new_bicycle_node.h"
 #include "constraints/box_constraints.h"
 #include <iostream>
 #include <chrono>
 
 
-template<int state_dim, int control_dim, int horizon>
+template<int state_dim, int control_dim>
 class NewALILQR {
 public:
     using VectorState = Eigen::Matrix<double, state_dim, 1>;
@@ -22,9 +24,26 @@ public:
     using MatrixR = Eigen::Matrix<double, control_dim, control_dim>;
     using MatrixK = Eigen::Matrix<double, control_dim, state_dim>;
 
-    NewALILQR(const std::array<NewILQRNode<state_dim, control_dim>*, horizon + 1>& ilqr_nodes, const VectorState& init_state, int real_horizon)
-        : ilqr_nodes_(ilqr_nodes), init_state_(init_state), real_horizon_(real_horizon) { zero_control_.setZero();
-        zero_state_.setZero(); }
+    NewALILQR(const std::vector<std::shared_ptr<NewILQRNode<state_dim, control_dim>>>& ilqr_nodes,
+        const VectorState& init_state)
+        : ilqr_nodes_(ilqr_nodes), init_state_(init_state) {
+        zero_control_.setZero();
+        zero_state_.setZero();
+        horizon_ = ilqr_nodes.size() - 1;
+        x_list_.resize(state_dim, horizon_ + 1);
+        u_list_.resize(control_dim, horizon_);
+        cost_augmented_lagrangian_jacobian_x_list_.resize(horizon_ + 1);
+        cost_augmented_lagrangian_jacobian_u_list_.resize(horizon_);
+        cost_augmented_lagrangian_hessian_x_list_.resize(horizon_ + 1);
+        cost_augmented_lagrangian_hessian_u_list_.resize(horizon_);
+        dynamics_jacobian_x_list_.resize(horizon_);
+        dynamics_jacobian_u_list_.resize(horizon_);
+        max_constraints_violation_list_.resize(horizon_ + 1, 1);
+        K_list_.resize(horizon_);
+        k_list_.resize(horizon_);
+        dynamics_hession_x_list_.resize(horizon_);
+        cost_list_.resize(horizon_ + 1);
+    }
     void linearizedInitialGuess();
     void CalcDerivatives(int start, int end);
     void CalcDerivatives();
@@ -50,58 +69,56 @@ public:
 
     void ILQRProcess(int max_iter, double max_tol);
 
-    Eigen::Matrix<double, state_dim, horizon + 1> get_x_list() { return x_list_; }
-    Eigen::Matrix<double, control_dim, horizon> get_u_list() { return u_list_; }
-    std::array<MatrixK, horizon> get_K() {return K_list_; }
-    std::array<VectorControl, horizon> get_k() {return k_list_; }
-    std::array<Eigen::Matrix<double, state_dim, state_dim>, horizon> get_jacobian_x() { return dynamics_jacobian_x_list_; }
-    std::array<Eigen::Matrix<double, state_dim, control_dim>, horizon> get_jacobian_u() { return dynamics_jacobian_u_list_; }
+    Eigen::MatrixXd get_x_list() { return x_list_; }
+    Eigen::MatrixXd get_u_list() { return u_list_; }
+    std::vector<MatrixK> get_K() {return K_list_; }
+    std::vector<VectorControl> get_k() {return k_list_; }
+    std::vector<Eigen::Matrix<double, state_dim, state_dim>> get_jacobian_x() { return dynamics_jacobian_x_list_; }
+    std::vector<Eigen::Matrix<double, state_dim, control_dim>> get_jacobian_u() { return dynamics_jacobian_u_list_; }
 
 
 
 
 private:
-    Eigen::Matrix<double, state_dim, horizon + 1> x_list_;
-    Eigen::Matrix<double, control_dim, horizon> u_list_;
-    Eigen::Matrix<double, state_dim, horizon + 1> pre_x_list_;
-    Eigen::Matrix<double, control_dim, horizon> pre_u_list_;
-    Eigen::Matrix<double, state_dim, horizon + 1> x_temp_list_;
-    Eigen::Matrix<double, control_dim, horizon> u_temp_list_;
+    Eigen::MatrixXd x_list_;
+    Eigen::MatrixXd u_list_;
+    Eigen::MatrixXd pre_x_list_;
+    Eigen::MatrixXd pre_u_list_;
 
     Eigen::Matrix<double, control_dim, 1> zero_control_;
     Eigen::Matrix<double, state_dim, 1> zero_state_;
 
-    std::array<Eigen::Matrix<double, state_dim, 1>, horizon + 1> cost_augmented_lagrangian_jacobian_x_list_;
-    std::array<Eigen::Matrix<double, control_dim, 1>, horizon> cost_augmented_lagrangian_jacobian_u_list_;
-    std::array<Eigen::Matrix<double, state_dim, state_dim>, horizon + 1> cost_augmented_lagrangian_hessian_x_list_;
-    std::array<Eigen::Matrix<double, control_dim, control_dim>, horizon> cost_augmented_lagrangian_hessian_u_list_;
-    std::array<Eigen::Matrix<double, state_dim, state_dim>, horizon> dynamics_jacobian_x_list_;
-    std::array<Eigen::Matrix<double, state_dim, control_dim>, horizon> dynamics_jacobian_u_list_;
+    std::vector<Eigen::Matrix<double, state_dim, 1>> cost_augmented_lagrangian_jacobian_x_list_;
+    std::vector<Eigen::Matrix<double, control_dim, 1>> cost_augmented_lagrangian_jacobian_u_list_;
+    std::vector<Eigen::Matrix<double, state_dim, state_dim>> cost_augmented_lagrangian_hessian_x_list_;
+    std::vector<Eigen::Matrix<double, control_dim, control_dim>> cost_augmented_lagrangian_hessian_u_list_;
+    std::vector<Eigen::Matrix<double, state_dim, state_dim>> dynamics_jacobian_x_list_;
+    std::vector<Eigen::Matrix<double, state_dim, control_dim>> dynamics_jacobian_u_list_;
 
-    Eigen::Matrix<double, horizon + 1, 1> max_constraints_violation_list_;
+    Eigen::MatrixXd max_constraints_violation_list_;
 
-    std::array<MatrixK, horizon> K_list_;
-    std::array<VectorControl, horizon> k_list_;
+    std::vector<MatrixK> K_list_;
+    std::vector<VectorControl> k_list_;
 
     double deltaV_linear_ = 0.F;
     double deltaV_quadratic_ = 0.F;
     double mu_ = 1.0;
-    Eigen::Matrix<double, horizon + 1, 1> cost_list_;
-    std::array<std::tuple<MatrixA, MatrixA, MatrixA>, horizon> dynamics_hession_x_list_;
+    Eigen::VectorXd cost_list_;
+    std::vector<std::tuple<MatrixA, MatrixA, MatrixA>> dynamics_hession_x_list_;
 
 public:
-std::array<NewILQRNode<state_dim, control_dim>*, horizon + 1> ilqr_nodes_;
+std::vector<std::shared_ptr<NewILQRNode<state_dim, control_dim>>> ilqr_nodes_;
 VectorState init_state_;
-int real_horizon_ = 10;
+int horizon_ = 10;
 
 };
 
-template<int state_dim, int control_dim, int horizon>
-void NewALILQR<state_dim, control_dim, horizon>::linearizedInitialGuess() {
+template<int state_dim, int control_dim>
+void NewALILQR<state_dim, control_dim>::linearizedInitialGuess() {
     x_list_.col(0) = init_state_;
     u_list_.col(0).setZero();
-    MatrixQ P = ilqr_nodes_[horizon]->cost_hessian(zero_state_, zero_control_).first.Identity();
-    for (int t = horizon - 1; t >= 0; --t) {
+    MatrixQ P = ilqr_nodes_[horizon_]->cost_hessian(zero_state_, zero_control_).first.Identity();
+    for (int t = horizon_ - 1; t >= 0; --t) {
         auto dynamics_jacobian = ilqr_nodes_[t]->dynamics_jacobian(ilqr_nodes_[t]->goal(), VectorControl::Zero());
         MatrixA A = dynamics_jacobian.first;
         MatrixB B = dynamics_jacobian.second;
@@ -111,7 +128,7 @@ void NewALILQR<state_dim, control_dim, horizon>::linearizedInitialGuess() {
         P = ilqr_nodes_[t]->cost_hessian(zero_state_, zero_control_).first.Identity() + A.transpose() * P * (A - B * K);
     }
 
-    for (int t = 0; t < horizon; ++t) {
+    for (int t = 0; t < horizon_; ++t) {
         VectorState goal_state = ilqr_nodes_[t]->goal();
         MatrixK K = K_list_[t];
 
@@ -119,14 +136,14 @@ void NewALILQR<state_dim, control_dim, horizon>::linearizedInitialGuess() {
         x_list_.col(t + 1) = ilqr_nodes_[t]->dynamics(x_list_.col(t), u_list_.col(t));
 
     }
-    for (auto* node : ilqr_nodes_) {
+    for (auto node : ilqr_nodes_) {
         node->reset_lambda();
         node->reset_mu();
     }
 }
 
-template<int state_dim, int control_dim, int horizon>
-void NewALILQR<state_dim, control_dim, horizon>::CalcDerivatives(int start, int end) {
+template<int state_dim, int control_dim>
+void NewALILQR<state_dim, control_dim>::CalcDerivatives(int start, int end) {
     // double cost_aug_hessian_time_sum = 0.0;
     // double cost_aug_jacobian_time_sum = 0.0;
 
@@ -171,37 +188,37 @@ void NewALILQR<state_dim, control_dim, horizon>::CalcDerivatives(int start, int 
     // }
 }
 
-template<int state_dim, int control_dim, int horizon>
-void NewALILQR<state_dim, control_dim, horizon>::CalcDerivatives() {
-    auto x_end = x_list_.col(horizon);
-    cost_list_[horizon] = ilqr_nodes_[horizon]->cost(x_end, zero_control_);
-    cost_augmented_lagrangian_jacobian_x_list_[horizon] = ilqr_nodes_[horizon]->cost_jacobian(x_end, zero_control_).first;
-    cost_augmented_lagrangian_hessian_x_list_[horizon] = ilqr_nodes_[horizon]->cost_hessian(x_end, zero_control_).first;
+template<int state_dim, int control_dim>
+void NewALILQR<state_dim, control_dim>::CalcDerivatives() {
+    auto x_end = x_list_.col(horizon_);
+    cost_list_[horizon_] = ilqr_nodes_[horizon_]->cost(x_end, zero_control_);
+    cost_augmented_lagrangian_jacobian_x_list_[horizon_] = ilqr_nodes_[horizon_]->cost_jacobian(x_end, zero_control_).first;
+    cost_augmented_lagrangian_hessian_x_list_[horizon_] = ilqr_nodes_[horizon_]->cost_hessian(x_end, zero_control_).first;
     
     // auto start = std::chrono::high_resolution_clock::now();
-    CalcDerivatives(0, horizon - 1);
+    CalcDerivatives(0, horizon_ - 1);
     // auto end = std::chrono::high_resolution_clock::now();
     // std::chrono::duration<double> CalcDerivatives_duration = std::chrono::duration_cast<std::chrono::duration<double>>(end - start);
     // std::cout << "calc der " << CalcDerivatives_duration.count() << "seconds" << std::endl;
 }
 
-template<int state_dim, int control_dim, int horizon>
-double NewALILQR<state_dim, control_dim, horizon>::computeTotalCost() {
+template<int state_dim, int control_dim>
+double NewALILQR<state_dim, control_dim>::computeTotalCost() {
     return cost_list_.sum();
 }
 
-template<int state_dim, int control_dim, int horizon>
-void NewALILQR<state_dim, control_dim, horizon>::UpdateTrajectoryAndCostList(double alpha) {
-    for(int i = 0; i < horizon; ++i) {
+template<int state_dim, int control_dim>
+void NewALILQR<state_dim, control_dim>::UpdateTrajectoryAndCostList(double alpha) {
+    for(int i = 0; i < horizon_; ++i) {
         u_list_.col(i) += K_list_[i] * (x_list_.col(i) - pre_x_list_.col(i)) + alpha * k_list_[i];
         x_list_.col(i + 1) = ilqr_nodes_[i]->dynamics(x_list_.col(i), u_list_.col(i));
         cost_list_[i] = ilqr_nodes_[i]->cost(x_list_.col(i), u_list_.col(i));
     }
-    cost_list_[horizon] = ilqr_nodes_[horizon]->cost(x_list_.col(horizon), zero_control_);
+    cost_list_[horizon_] = ilqr_nodes_[horizon_]->cost(x_list_.col(horizon_), zero_control_);
 }
 
-template<int state_dim, int control_dim, int horizon>
-Eigen::Matrix<double, state_dim, PARALLEL_NUM> NewALILQR<state_dim, control_dim, horizon>::State_Dot(const Eigen::Matrix<double, state_dim, PARALLEL_NUM>& x,
+template<int state_dim, int control_dim>
+Eigen::Matrix<double, state_dim, PARALLEL_NUM> NewALILQR<state_dim, control_dim>::State_Dot(const Eigen::Matrix<double, state_dim, PARALLEL_NUM>& x,
                                                              const Eigen::Matrix<double, control_dim, PARALLEL_NUM>& u) {
 
     auto theta_list_matrix_raw = x.row(2);
@@ -222,8 +239,8 @@ Eigen::Matrix<double, state_dim, PARALLEL_NUM> NewALILQR<state_dim, control_dim,
     return answer;
 }
 
-template<int state_dim, int control_dim, int horizon>
-void NewALILQR<state_dim, control_dim, horizon>::ParallelLinearSearch(double alpha, double& best_alpha, double& best_cost) {
+template<int state_dim, int control_dim>
+void NewALILQR<state_dim, control_dim>::ParallelLinearSearch(double alpha, double& best_alpha, double& best_cost) {
     auto preprocess_start = std::chrono::high_resolution_clock::now();
     auto x_list_raw = x_list_;
     auto k_forward = k_list_;
@@ -262,7 +279,7 @@ void NewALILQR<state_dim, control_dim, horizon>::ParallelLinearSearch(double alp
     loop_count.setZero();
 
 
-    for (int index = 0; index < horizon; index++) {
+    for (int index = 0; index < horizon_; index++) {
         x_old = x_list_raw.col(index).replicate(1, PARALLEL_NUM);
         u_old = u_list_.col(index).replicate(1, PARALLEL_NUM);
         k_one = k_forward[index].replicate(1, PARALLEL_NUM);
@@ -275,7 +292,7 @@ void NewALILQR<state_dim, control_dim, horizon>::ParallelLinearSearch(double alp
         auto x_dot_mid = State_Dot(x_mid, u_new);
         x_new = x_new + x_dot_mid * 0.1;
     }
-    one_cost_list = ilqr_nodes_[horizon]->parallel_cost(x_new, zero_control_.replicate(1, PARALLEL_NUM));
+    one_cost_list = ilqr_nodes_[horizon_]->parallel_cost(x_new, zero_control_.replicate(1, PARALLEL_NUM));
     parallel_cost_list_ += one_cost_list;
     Eigen::Index min_index;
     best_cost = parallel_cost_list_.minCoeff(&min_index);
@@ -283,14 +300,14 @@ void NewALILQR<state_dim, control_dim, horizon>::ParallelLinearSearch(double alp
     best_alpha = alpha_matrix(real_index, real_index);
 }
 
-template<int state_dim, int control_dim, int horizon>
-void NewALILQR<state_dim, control_dim, horizon>::Backward() {
-    auto Vx = cost_augmented_lagrangian_jacobian_x_list_[horizon];
-    auto Vxx = cost_augmented_lagrangian_hessian_x_list_[horizon];
+template<int state_dim, int control_dim>
+void NewALILQR<state_dim, control_dim>::Backward() {
+    auto Vx = cost_augmented_lagrangian_jacobian_x_list_[horizon_];
+    auto Vxx = cost_augmented_lagrangian_hessian_x_list_[horizon_];
     deltaV_linear_ = 0.0;
     deltaV_quadratic_ = 0.0;
 
-    for (int t = horizon - 1; t >= 0; --t) {
+    for (int t = horizon_ - 1; t >= 0; --t) {
         auto A = dynamics_jacobian_x_list_[t];
         auto B = dynamics_jacobian_u_list_[t];
 
@@ -323,8 +340,8 @@ void NewALILQR<state_dim, control_dim, horizon>::Backward() {
     }
 }
 
-template<int state_dim, int control_dim, int horizon>
-void NewALILQR<state_dim, control_dim, horizon>::Forward() {
+template<int state_dim, int control_dim>
+void NewALILQR<state_dim, control_dim>::Forward() {
     double old_cost = computeTotalCost();
     double new_cost = 0.0;
     pre_x_list_ = x_list_;
@@ -373,17 +390,17 @@ void NewALILQR<state_dim, control_dim, horizon>::Forward() {
     }
 }
 
-template<int state_dim, int control_dim, int horizon>
-double NewALILQR<state_dim, control_dim, horizon>::ComputeConstraintViolation() {
-    for (int index = 0; index < horizon; ++index) {
-        max_constraints_violation_list_[index] = ilqr_nodes_[index]->max_constraints_violation(x_list_.col(index), u_list_.col(index));
+template<int state_dim, int control_dim>
+double NewALILQR<state_dim, control_dim>::ComputeConstraintViolation() {
+    for (int index = 0; index < horizon_; ++index) {
+        max_constraints_violation_list_(index, 0) = ilqr_nodes_[index]->max_constraints_violation(x_list_.col(index), u_list_.col(index));
     }
-    max_constraints_violation_list_[horizon] = ilqr_nodes_[horizon]->max_constraints_violation(x_list_.col(horizon), zero_control_);
+    max_constraints_violation_list_(horizon_, 0) = ilqr_nodes_[horizon_]->max_constraints_violation(x_list_.col(horizon_), zero_control_);
     return max_constraints_violation_list_.maxCoeff();
 }
 
-template<int state_dim, int control_dim, int horizon>
-void NewALILQR<state_dim, control_dim, horizon>::ILQRProcess(int max_iter, double max_tol) {
+template<int state_dim, int control_dim>
+void NewALILQR<state_dim, control_dim>::ILQRProcess(int max_iter, double max_tol) {
     using namespace std::chrono;
 
     for(int iter = 0; iter < max_iter; ++iter) {
@@ -415,24 +432,24 @@ void NewALILQR<state_dim, control_dim, horizon>::ILQRProcess(int max_iter, doubl
     }
 }
 
-template<int state_dim, int control_dim, int horizon>
-void NewALILQR<state_dim, control_dim, horizon>::UpdateMu(double gain) {
+template<int state_dim, int control_dim>
+void NewALILQR<state_dim, control_dim>::UpdateMu(double gain) {
    mu_ = mu_ * gain;
-   for(auto* node : ilqr_nodes_) {
+   for(auto node : ilqr_nodes_) {
       node->update_mu(mu_);
    }
 }
 
-template<int state_dim, int control_dim, int horizon>
-void NewALILQR<state_dim, control_dim, horizon>::UpdateLambda() {
-   for(int index = 0; index < horizon; ++index) {
+template<int state_dim, int control_dim>
+void NewALILQR<state_dim, control_dim>::UpdateLambda() {
+   for(int index = 0; index < horizon_; ++index) {
       ilqr_nodes_[index]->update_lambda(x_list_.col(index), u_list_.col(index));
    }
-   ilqr_nodes_[horizon]->update_lambda(x_list_.col(horizon), zero_control_);
+   ilqr_nodes_[horizon_]->update_lambda(x_list_.col(horizon_), zero_control_);
 }
 
-template<int state_dim, int control_dim, int horizon>
-void NewALILQR<state_dim, control_dim, horizon>::optimize(int max_outer_iter, int max_inner_iter, double max_violation) {
+template<int state_dim, int control_dim>
+void NewALILQR<state_dim, control_dim>::optimize(int max_outer_iter, int max_inner_iter, double max_violation) {
     using namespace std::chrono;
     auto start_optimize = high_resolution_clock::now();
 
@@ -459,7 +476,7 @@ void NewALILQR<state_dim, control_dim, horizon>::optimize(int max_outer_iter, in
     auto end_optimize = high_resolution_clock::now();
     duration<double> optimize_duration = duration_cast<duration<double>>(end_optimize - start_optimize);
 
-    for(int i = 0; i < horizon - 1; ++i) {
+    for(int i = 0; i < horizon_ - 1; ++i) {
         std::cout << "u_result " << u_list_.col(i).transpose() << std::endl;
     }
     

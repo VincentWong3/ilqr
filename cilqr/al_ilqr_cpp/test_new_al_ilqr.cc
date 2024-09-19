@@ -1,5 +1,8 @@
 #include "constraints/box_constraints.h"
 #include "new_al_ilqr.h"
+#include <memory>
+#include <vector>
+#include <array>
 
 std::vector<Eigen::VectorXd> generateSShapeGoalFull(double v, double dt, int num_points) {
     std::vector<Eigen::VectorXd> goals;
@@ -45,22 +48,21 @@ int main() {
 
     BoxConstraints<6, 2> constraints_obj(state_bounds[0], state_bounds[1], control_bounds[0], control_bounds[1]);
 
-    std::array<NewILQRNode<6, 2>*, 51> ilqr_node_list;
+    std::vector<std::shared_ptr<NewILQRNode<6, 2>>> ilqr_node_list;
+
+    ilqr_node_list.clear();
 
     for (int i = 0; i <= num_points; ++i) {
-        ilqr_node_list[i] = new NewBicycleNode<BoxConstraints<6, 2>>(L, dt, 0.001, goal_list_fast[i], Q_fast, R_fast, constraints_obj);
+        ilqr_node_list.push_back(std::make_shared<NewBicycleNode<BoxConstraints<6, 2>>>(L, dt, 0.001, goal_list_fast[i], Q_fast, R_fast, constraints_obj));
     }
 
     Eigen::Matrix<double, 6,1> init_state;
 
     init_state << 0.0, 0.0, 0.0, 0.0, v, 0.0;
 
-    NewALILQR<6,2,50> solver(ilqr_node_list, init_state, 50);
+    NewALILQR<6,2> solver(ilqr_node_list, init_state);
 
     solver.optimize(50, 100, 1e-3);
-
-    
-
 
 
 

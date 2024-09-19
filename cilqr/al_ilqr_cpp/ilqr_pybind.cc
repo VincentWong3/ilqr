@@ -14,16 +14,15 @@ namespace py = pybind11;
 
 template <int state_dim, int control_dim, int horizon>
 void bind_new_al_ilqr(py::module& m, const std::string& class_name) {
-    using NewALILQRType = NewALILQR<state_dim, control_dim, horizon>;
+    using NewALILQRType = NewALILQR<state_dim, control_dim>;
     using VectorState = Eigen::Matrix<double, state_dim, 1>;
     using ILQRNodeType = NewILQRNode<state_dim, control_dim>;
 
-    // 定义 std::array 的别名，以便在绑定中使用
-    using ILQRNodeArray = std::array<ILQRNodeType*, horizon + 1>;
+    using ILQRNodeVector = std::vector<std::shared_ptr<ILQRNodeType>>;
 
     py::class_<NewALILQRType, std::shared_ptr<NewALILQRType>>(m, class_name.c_str())
-        .def(py::init<const ILQRNodeArray&, const VectorState&, int>(),
-             py::arg("ilqr_nodes"), py::arg("init_state"), py::arg("real_horizon"))
+        .def(py::init<const ILQRNodeVector&, const VectorState&>(),
+             py::arg("ilqr_nodes"), py::arg("init_state"))
         .def("optimize", &NewALILQRType::optimize,
              py::arg("max_outer_iter"), py::arg("max_inner_iter"), py::arg("max_violation"))
         .def("get_x_list", &NewALILQRType::get_x_list)
@@ -49,7 +48,7 @@ PYBIND11_MODULE(ilqr_pybind, m) {
 
     bind_new_bicycle_node<BoxConstraints<state_dim, control_dim>>(m, "NewBicycleNode6_2");
 
-    bind_new_al_ilqr<state_dim, control_dim, 50>(m, "NewALILQR6_2_50");
+    bind_new_al_ilqr<state_dim, control_dim, 50>(m, "NewALILQR6_2");
 }
 
 

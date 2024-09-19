@@ -61,23 +61,23 @@ cc_binary(
 
 
 pybind_extension(
-    name = "ilqr_pybind",
-    srcs = ["ilqr_pybind.cc"],
-    deps = [
-        "//constraints:box_constraints",
-        "//constraints:constraints",
-        "//constraints:linear_constraints",
-        "//constraints:constraints_bind",
-        "//model:node_bind",
-        ":new_al_ilqr",
-        "@eigen",
-    ],
-    copts = ["-O3", "-march=native", "-faligned-new"],
+     name = "ilqr_pybind",
+     srcs = ["ilqr_pybind.cc"],
+     deps = [
+         "//constraints:box_constraints",
+         "//constraints:constraints",
+         "//constraints:linear_constraints",
+         "//constraints:constraints_bind",
+         "//model:node_bind",
+         ":new_al_ilqr",
+         "@eigen",
+     ],
+     copts = ["-O3", "-march=native", "-faligned-new"],
 )
 
 py_library(
-    name = "ilqr_pybind_lib",
-    data = [":ilqr_pybind.so"],
-    visibility = ["//visibility:public"],
+     name = "ilqr_pybind_lib",
+     data = [":ilqr_pybind.so"],
+     visibility = ["//visibility:public"],
 )
 
