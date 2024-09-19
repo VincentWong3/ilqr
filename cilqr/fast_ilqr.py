@@ -139,7 +139,7 @@ class FastILQR:
         x, u = x_init, u_init
         for j in range(20):
             old_cost = self.compute_total_cost()
-            print(f"old_cost {old_cost}")
+            #print(f"old_cost {old_cost}")
             for i in range(max_iters):
                 k, K = self.backward()
                 new_x, new_u = self.forward(k, K)
@@ -149,7 +149,7 @@ class FastILQR:
                 x, u = new_x, new_u
                 old_cost = new_cost
             violation = self.compute_constrain_violation()
-            print(f"violation {violation}")
+            #print(f"violation {violation}")
 
             if violation < 1e-3:
                 break

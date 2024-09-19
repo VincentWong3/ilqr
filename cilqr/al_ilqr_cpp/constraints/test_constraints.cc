@@ -11,10 +11,10 @@ int main() {
     Eigen::Matrix<double, control_dim, 1> control_min;
     Eigen::Matrix<double, control_dim, 1> control_max;
 
-    state_min << -10, -10, -M_PI, -M_PI / 3, -5, -1;
-    state_max << 10, 10, M_PI, M_PI / 3, 5, 1; 
-    control_min << -1, -1;
-    control_max << 1, 1;
+    state_min << -1, -1, -1, -1, -1, -1;
+    state_max << 1, 1, 1, 1, 1, 1;
+    control_min << -2, -2;
+    control_max << 2, 2;
 
     BoxConstraints<state_dim, control_dim> box_constraints(state_min, state_max, control_min, control_max);
     
@@ -23,8 +23,8 @@ int main() {
     Eigen::Matrix<double, state_dim, 1> x;
     Eigen::Matrix<double, control_dim, 1> u;
 
-    x << 1.5, -1.5, 0, 0, 0, 0;
-    u << 0.51, -0.51;
+    x << -3, -2, -1, 0, 1, 2;
+    u << -1, 3;
 
     auto c = box_constraints.constraints(x, u);
     std::cout << "Constraints: \n" << c << std::endl;

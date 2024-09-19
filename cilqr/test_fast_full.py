@@ -5,6 +5,7 @@ from fast_bicycle_node import *
 from fast_ilqr import FastILQR
 from box_constrains import *
 import copy
+import time
 
 # 修改generate_s_shape_goal函数生成6维目标状态
 def generate_s_shape_goal_full(v, dt, num_points):
@@ -57,7 +58,14 @@ ilqr_full = FastILQR(ilqr_nodes_full)
 ilqr_nodes_full[0].state = np.array([0, 0, 0, 0, v, 0])
 
 # 优化轨迹
+start_time = time.time()
+
 x_init_full, u_init_full, x_opt_full, u_opt_full = ilqr_full.optimize()
+
+end_time = time.time()
+elapsed_time = end_time - start_time
+
+print(f"ilqr_full.optimize() 耗时：{elapsed_time:.6f} 秒")
 
 
 # 绘制状态轨迹和目标状态

@@ -22,8 +22,8 @@ public:
     using MatrixR = Eigen::Matrix<double, control_dim, control_dim>;
     using MatrixK = Eigen::Matrix<double, control_dim, state_dim>;
 
-    NewALILQR(const std::array<NewILQRNode<state_dim, control_dim>*, horizon + 1>& ilqr_nodes, const VectorState& init_state)
-        : ilqr_nodes_(ilqr_nodes), init_state_(init_state) { zero_control_.setZero(); 
+    NewALILQR(const std::array<NewILQRNode<state_dim, control_dim>*, horizon + 1>& ilqr_nodes, const VectorState& init_state, int real_horizon)
+        : ilqr_nodes_(ilqr_nodes), init_state_(init_state), real_horizon_(real_horizon) { zero_control_.setZero();
         zero_state_.setZero(); }
     void linearizedInitialGuess();
     void CalcDerivatives(int start, int end);
@@ -92,6 +92,7 @@ private:
 public:
 std::array<NewILQRNode<state_dim, control_dim>*, horizon + 1> ilqr_nodes_;
 VectorState init_state_;
+int real_horizon_ = 10;
 
 };
 
@@ -334,7 +335,6 @@ void NewALILQR<state_dim, control_dim, horizon>::Forward() {
     double best_cost = 0.0;
 
     // auto para_start = std::chrono::high_resolution_clock::now();
-    alpha = best_alpha;
     // auto para_end = std::chrono::high_resolution_clock::now();
     // std::chrono::duration<double> CalcDerivatives_duration = std::chrono::duration_cast<std::chrono::duration<double>>(para_end - para_start);
     // std::cout << "parallel " << CalcDerivatives_duration.count() << "seconds" << std::endl;
@@ -457,11 +457,12 @@ void NewALILQR<state_dim, control_dim, horizon>::optimize(int max_outer_iter, in
         } 
     }
     auto end_optimize = high_resolution_clock::now();
+    duration<double> optimize_duration = duration_cast<duration<double>>(end_optimize - start_optimize);
 
     for(int i = 0; i < horizon - 1; ++i) {
         std::cout << "u_result " << u_list_.col(i).transpose() << std::endl;
     }
-    duration<double> optimize_duration = duration_cast<duration<double>>(end_optimize - start_optimize);
+    
     std::cout << "optimize took " << optimize_duration.count() << " seconds" << std::endl;
 }
 

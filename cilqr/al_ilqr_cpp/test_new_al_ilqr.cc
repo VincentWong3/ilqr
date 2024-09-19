@@ -55,9 +55,9 @@ int main() {
 
     init_state << 0.0, 0.0, 0.0, 0.0, v, 0.0;
 
-    NewALILQR<6,2,50> solver(ilqr_node_list, init_state);
+    NewALILQR<6,2,50> solver(ilqr_node_list, init_state, 50);
 
-    solver.optimize(10, 20, 1e-3);
+    solver.optimize(50, 100, 1e-3);
 
     
 

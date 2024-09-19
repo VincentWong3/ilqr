@@ -315,4 +315,5 @@ private:
         return {factor_dot_hxx, factor_dot_huu, factor_dot_hxu};
     }
 };
+
 #endif // CONSTRAIN_CONSTRAIN_H_

@@ -18,7 +18,7 @@ cc_library(
     copts = ["-O3", "-march=native"],
     deps = [
         ":ilqr_node",
-        "@eigen",  # Ensure Eigen dependency is included here as well
+        "@eigen",
     ],
     visibility = ["//visibility:public"],
 )
@@ -92,3 +92,17 @@ cc_library(
     ],
     visibility = ["//visibility:public"],
 )
+
+cc_library(
+    name = "node_bind",
+    hdrs = [
+        "node_bind.h",
+    ],
+    copts = ["-O3", "-march=native"],
+    deps = [
+        ":new_bicycle_node",
+        "@eigen",
+    ],
+    visibility = ["//visibility:public"],
+)
+

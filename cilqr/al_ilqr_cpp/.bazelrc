@@ -4,3 +4,5 @@ build:opt --copt=-march=native
 build:opt --cxxopt=-O3
 build:opt --cxxopt=-march=native
 build:opt --linkopt=-O3
+
+build --python_path=/home/vincent/.conda/envs/py39/bin/python

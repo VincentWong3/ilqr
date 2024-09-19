@@ -18,15 +18,15 @@ class ILQR:
 
         x[0] = self.ilqr_nodes[0].state  # 初始状态
 
-        P = self.ilqr_nodes[-1].Q
+        P = np.eye(state_dim)
         K_list = []
 
         for t in reversed(range(horizon)):
             current_node = self.ilqr_nodes[t]
             A, B = current_node.dynamics_jacobian(current_node.goal, np.zeros(control_dim))
-            K = np.linalg.inv(current_node.R + B.T @ P @ B) @ (B.T @ P @ A)
+            K = np.linalg.inv(np.eye(control_dim) * 20.0 + B.T @ P @ B) @ (B.T @ P @ A)
             K_list.append(K)
-            P = current_node.Q + A.T @ P @ (A - B @ K)
+            P = np.eye(state_dim) + A.T @ P @ (A - B @ K)
 
         K_list = K_list[::-1]
 
@@ -36,7 +36,7 @@ class ILQR:
 
             K = K_list[t]
             u[t] = -K @ (x[t] - goal_state)
-            u[t] = np.clip(u[t], current_node.control_min, current_node.control_max)
+            #u[t] = np.clip(u[t], current_node.control_min, current_node.control_max)
 
             x[t + 1] = current_node.dynamics(x[t], u[t])
 
@@ -118,6 +118,15 @@ class ILQR:
             for t in range(horizon):
                 new_u[t] = u[t] + alpha * k[t] + K[t] @ (new_x[t] - x[t])
                 new_x[t + 1] = self.ilqr_nodes[t].dynamics(new_x[t], new_u[t])
+
+                print("*************************")
+                if t == 1:
+                    print(f"u[t] {u[t]}")
+                    print(f"new_x[t] {new_x[t]}")
+                    print(f"x[t] {x[t]}")
+
+
+
                 self.ilqr_nodes[t + 1].state = new_x[t + 1]
                 self.ilqr_nodes[t].control = new_u[t]
             new_cost = self.compute_total_cost()
@@ -125,6 +134,11 @@ class ILQR:
                 break
             else:
                 alpha = alpha / 2.0
+                new_u = u
+                new_x = x
+                print("===============================")
+
+
         if alpha <= 1e-8:
             new_x = x
             new_u = u
@@ -138,8 +152,9 @@ class ILQR:
         x_init, u_init = self.linearized_initial_guess()
         old_cost = self.compute_total_cost()
         x, u = x_init, u_init
-        for j in range(10):
+        for j in range(20):
             old_cost = self.compute_total_cost()
+            print(f"old cost {old_cost}")
             for i in range(max_iters):
                 k, K = self.backward()
                 new_x, new_u = self.forward(k, K)
@@ -149,13 +164,14 @@ class ILQR:
                 x, u = new_x, new_u
                 old_cost = new_cost
             violation = self.compute_constrain_violation()
+            print(f"violation {violation}")
 
-            if violation < 1e-2:
+            if violation < 1e-3:
                 break
-            elif violation >= 1e-2 and violation < 1e-1:
+            elif violation >= 1e-3 and violation < 1e-1:
                 self.update_lambda()
             else:
-                self.update_mu(4.0)
+                self.update_mu(8.0)
         return x_init, u_init, x, u
 
 

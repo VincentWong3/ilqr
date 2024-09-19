@@ -10,7 +10,7 @@ control = sp.Matrix([u1, u2])
 # 定义连续时间动力学方程
 x_dot = v * sp.cos(theta)
 y_dot = v * sp.sin(theta)
-theta_dot = v * sp.tan(delta) / (L * (1 + k * v**2))
+theta_dot = v * sp.tan(delta) / (3.0 * (1 + 0.0003 * v**2))
 delta_dot = u1
 v_dot = a
 a_dot = u2
@@ -20,6 +20,9 @@ f = sp.Matrix([x_dot, y_dot, theta_dot, delta_dot, v_dot, a_dot])
 
 # 计算 k1
 k1 = f
+
+jx_c = f.jacobian(state)
+print(jx_c)
 
 # 计算中间状态
 state_mid = state + 0.5 * dt * k1
@@ -47,7 +50,7 @@ Ju = state_next.jacobian(control)
 
 # 输出结果
 print("Jacobian with respect to state (Jx):")
-sp.pretty_print(Jx)
+print(Jx)
 
 print("\nJacobian with respect to control (Ju):")
-sp.pretty_print(Ju)
+print(Ju)

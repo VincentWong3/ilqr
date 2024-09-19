@@ -4,6 +4,8 @@ from lat_bicycle_node import LatBicycleKinematicNode
 from full_bicycle_dynamic_node import FullBicycleDynamicNode
 from ilqr import ILQR
 
+import time
+
 # 修改generate_s_shape_goal函数生成6维目标状态
 def generate_s_shape_goal_full(v, dt, num_points):
     goals = []
@@ -26,12 +28,13 @@ def generate_s_shape_goal_full(v, dt, num_points):
 v = 10
 dt = 0.1
 L = 1
-num_points = 200
+num_points = 20
 goal_list_full = generate_s_shape_goal_full(v, dt, num_points)
 
+
 # 定义 Q 和 R
-Q_full = np.diag([1e-1, 1e-1, 1e-0, 1e-9, 1e-6, 1e-6])
-R_full = np.array([[10, 0], [0, 10]])
+Q_full = np.diag([1e-1, 1e-1, 1e-0, 1e-9, 1e-6, 1e-6]) * 1e3
+R_full = np.array([[100, 0], [0, 100]])
 
 # 定义状态和控制的范围（设置成较大范围以忽略约束）
 state_bounds_full = np.array([[-1000, -1000, -2 * np.pi, -10, -100, -10], [1000, 1000, 2 * np.pi, 10, 100, 10]])
@@ -39,7 +42,7 @@ control_bounds_full = np.array([[-0.2, -1], [0.2, 1]])
 
 # 创建 ILQRNode 实例列表
 ilqr_nodes_full = [
-    FullBicycleDynamicNode(L=L, dt=dt, k=0.0001, state_bounds=state_bounds_full, control_bounds=control_bounds_full,
+    FullBicycleDynamicNode(L=L, dt=dt, k=0.001, state_bounds=state_bounds_full, control_bounds=control_bounds_full,
                            goal=goal, Q=Q_full, R=R_full)
     for goal in goal_list_full
 ]
@@ -50,8 +53,17 @@ ilqr_full = ILQR(ilqr_nodes_full)
 # 设置初始状态
 ilqr_nodes_full[0].state = np.array([0, 0, 0, 0, v, 0])
 
+start_time = time.time()
+
 # 优化轨迹
 x_init_full, u_init_full, x_opt_full, u_opt_full = ilqr_full.optimize()
+
+end_time = time.time()
+elapsed_time = end_time - start_time
+
+print(f"ilqr_full.optimize() 耗时：{elapsed_time:.6f} 秒")
+
+print(u_opt_full)
 
 # 绘制状态轨迹和目标状态
 x_init_traj_full = x_init_full[:, 0]

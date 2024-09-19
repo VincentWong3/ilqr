@@ -11,7 +11,6 @@ public:
                       const Eigen::Matrix<double, constraint_dim, 1>& C, 
                       bool is_equality = false)
         : Constraints<state_dim, control_dim, constraint_dim>(is_equality), A_(A), B_(B), C_(C) {}
-
     Eigen::Matrix<double, constraint_dim, 1> constraints(const Eigen::Ref<const Eigen::Matrix<double, state_dim, 1>>& x, 
                                                        const Eigen::Ref<const Eigen::Matrix<double, control_dim, 1>>& u) const override {
         Eigen::Matrix<double, constraint_dim, 1> Ax = A_ * x;
