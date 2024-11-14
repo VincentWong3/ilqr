@@ -8,6 +8,7 @@
 #include <memory>
 #include "model/new_bicycle_node.h"
 #include "constraints/box_constraints.h"
+#include "constraints/quadratic_constraints.h"
 #include <iostream>
 #include <chrono>
 
@@ -172,20 +173,6 @@ void NewALILQR<state_dim, control_dim>::CalcDerivatives(int start, int end) {
     }
     // std::cout << "cost_aug_jacobian_time_sum " << cost_aug_jacobian_time_sum << std::endl;
     // std::cout << "cost_aug_hessian_time_sum " << cost_aug_hessian_time_sum << std::endl;
-
-    // for (int index = start; index <= end; ++index) {
-    //     auto x = x_list_.col(index);
-    //     auto u = u_list_.col(index);
-    //     ilqr_nodes_[index]->CalcAllCost(x, u, cost_list_[index],
-    //                                     cost_augmented_lagrangian_jacobian_x_list_[index],
-    //                                     cost_augmented_lagrangian_jacobian_u_list_[index],
-    //                                     cost_augmented_lagrangian_hessian_x_list_[index],
-    //                                     cost_augmented_lagrangian_hessian_u_list_[index]);
-    //     auto dynamics_jacobian = ilqr_nodes_[index]->dynamics_jacobian(x, u);
-    //     dynamics_jacobian_x_list_[index] = dynamics_jacobian.first;
-    //     dynamics_jacobian_u_list_[index] = dynamics_jacobian.second;
-    //     dynamics_hession_x_list_[index] = ilqr_nodes_[index]->dynamics_hessian_fxx(x, u);
-    // }
 }
 
 template<int state_dim, int control_dim>
@@ -241,63 +228,81 @@ Eigen::Matrix<double, state_dim, PARALLEL_NUM> NewALILQR<state_dim, control_dim>
 
 template<int state_dim, int control_dim>
 void NewALILQR<state_dim, control_dim>::ParallelLinearSearch(double alpha, double& best_alpha, double& best_cost) {
-    auto preprocess_start = std::chrono::high_resolution_clock::now();
+    // auto start = std::chrono::high_resolution_clock::now();
+    
+    // Alpha preparation
+    // auto alpha_prep_start = std::chrono::high_resolution_clock::now();
     auto x_list_raw = x_list_;
     auto k_forward = k_list_;
-
+    
     Eigen::Matrix<double, PARALLEL_NUM, 1> alpha_vector;
-
     for (int index = 0; index < PARALLEL_NUM; ++index) {
         alpha_vector[index] = alpha;
-        alpha /= 2.0;
+        alpha /= 3.0;
     }
-    Eigen::Array<double, 2, PARALLEL_NUM> real_alpha = (alpha_vector.transpose().replicate(control_dim, 1)).array();
-    
+    Eigen::Array<double, control_dim, PARALLEL_NUM> real_alpha = (alpha_vector.transpose().replicate(control_dim, 1)).array();
     Eigen::Matrix<double, PARALLEL_NUM, PARALLEL_NUM> alpha_matrix = alpha_vector.asDiagonal();
+    // auto alpha_prep_end = std::chrono::high_resolution_clock::now();
 
+    // std::cout << "Alpha preparation " << " time: " 
+    //              << std::chrono::duration_cast<std::chrono::microseconds>(alpha_prep_end - alpha_prep_start).count() << "us\n";
     
-
+    // Initialization
     Eigen::Matrix<double, state_dim, PARALLEL_NUM> x_old = x_list_raw.col(0).replicate(1, PARALLEL_NUM);
-
     Eigen::Matrix<double, state_dim, PARALLEL_NUM> x_new = x_old;
-
     Eigen::Matrix<double, control_dim, PARALLEL_NUM> k_one;
-
     Eigen::Matrix<double, control_dim, PARALLEL_NUM> u_old;
-
     Eigen::Matrix<double, control_dim, PARALLEL_NUM> u_new;
-
     Eigen::Matrix<double, PARALLEL_NUM, 1> parallel_cost_list_;
-
     parallel_cost_list_.setZero();
-
     Eigen::Matrix<double, PARALLEL_NUM, 1> one_cost_list;
 
-    auto loop_start = std::chrono::high_resolution_clock::now();
-
-    Eigen::Matrix<double, 10, 1>  loop_count;
-    loop_count.setZero();
-
-
+    // Main loop through the horizon
     for (int index = 0; index < horizon_; index++) {
+        //auto loop_iter_start = std::chrono::high_resolution_clock::now();
+        
         x_old = x_list_raw.col(index).replicate(1, PARALLEL_NUM);
         u_old = u_list_.col(index).replicate(1, PARALLEL_NUM);
         k_one = k_forward[index].replicate(1, PARALLEL_NUM);
         k_one = (k_one.array() * real_alpha).matrix();
+        
         u_new = u_old + K_list_[index] * (x_new - x_old) + k_one;
+
+        // Measure time for parallel_cost
+        // auto cost_start = std::chrono::high_resolution_clock::now();
         one_cost_list = ilqr_nodes_[index]->parallel_cost(x_new, u_new);
+        // auto cost_end = std::chrono::high_resolution_clock::now();
+
+        // Measure time for parallel_dynamics
+        // auto dynamics_start = std::chrono::high_resolution_clock::now();
+        x_new = ilqr_nodes_[0]->parallel_dynamics(x_new, u_new);
+        // auto dynamics_end = std::chrono::high_resolution_clock::now();
+        
         parallel_cost_list_ += one_cost_list;
-        auto x_dot = State_Dot(x_new, u_new);
-        auto x_mid = x_new + x_dot * 0.05;
-        auto x_dot_mid = State_Dot(x_mid, u_new);
-        x_new = x_new + x_dot_mid * 0.1;
+
+        // auto loop_iter_end = std::chrono::high_resolution_clock::now();
+        // std::cout << "Total loop iteration " << index << " time: " 
+        //           << std::chrono::duration_cast<std::chrono::microseconds>(loop_iter_end - loop_iter_start).count() << "us\n";
     }
+
+    // Final cost calculation
+    // auto final_cost_start = std::chrono::high_resolution_clock::now();
     one_cost_list = ilqr_nodes_[horizon_]->parallel_cost(x_new, zero_control_.replicate(1, PARALLEL_NUM));
     parallel_cost_list_ += one_cost_list;
+    // auto final_cost_end = std::chrono::high_resolution_clock::now();
+    // std::cout << "Final cost calculation time: " << std::chrono::duration_cast<std::chrono::microseconds>(final_cost_end - final_cost_start).count() << "us\n";
+
+    // Determine best cost and alpha
+    // auto min_cost_start = std::chrono::high_resolution_clock::now();
     Eigen::Index min_index;
     best_cost = parallel_cost_list_.minCoeff(&min_index);
     int real_index = static_cast<int>(min_index);
     best_alpha = alpha_matrix(real_index, real_index);
+    // auto min_cost_end = std::chrono::high_resolution_clock::now();
+    // std::cout << "Min cost calculation time: " << std::chrono::duration_cast<std::chrono::microseconds>(min_cost_end - min_cost_start).count() << "us\n";
+    
+    // auto end = std::chrono::high_resolution_clock::now();
+    // std::cout << "Total function time: " << std::chrono::duration_cast<std::chrono::microseconds>(end - start).count() << "us\n";
 }
 
 template<int state_dim, int control_dim>
@@ -326,8 +331,8 @@ void NewALILQR<state_dim, control_dim>::Backward() {
         //     IncreaseRegGain();
         //     break;
         // }
-        auto K = -Quu_inv * Qux;
-        auto k = -Quu_inv * Qu;
+        MatrixK K = -Quu_inv * Qux;
+        VectorControl k = -Quu_inv * Qu;
         K_list_[t] = K;
         k_list_[t] = k;
 
@@ -335,8 +340,8 @@ void NewALILQR<state_dim, control_dim>::Backward() {
         Vxx.noalias() = Qxx + K.transpose() * (Quu * K + Qux) + Qux.transpose() * K;
 
 
-        deltaV_linear_ += (k.transpose() * Qu)(0,0);
-        deltaV_quadratic_ += 0.5 * (k.transpose() * Quu * k)(0,0);
+        deltaV_linear_ += (k.transpose() * Qu).eval()(0,0);
+        deltaV_quadratic_ += 0.5 * (k.transpose() * Quu * k).eval()(0,0);
     }
 }
 
@@ -476,9 +481,7 @@ void NewALILQR<state_dim, control_dim>::optimize(int max_outer_iter, int max_inn
     auto end_optimize = high_resolution_clock::now();
     duration<double> optimize_duration = duration_cast<duration<double>>(end_optimize - start_optimize);
 
-    for(int i = 0; i < horizon_ - 1; ++i) {
-        std::cout << "u_result " << u_list_.col(i).transpose() << std::endl;
-    }
+    
     
     std::cout << "optimize took " << optimize_duration.count() << " seconds" << std::endl;
 }

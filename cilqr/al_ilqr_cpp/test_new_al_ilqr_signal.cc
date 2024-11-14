@@ -39,9 +39,9 @@ int main() {
     std::vector<Eigen::VectorXd> goal_list_fast = generateSShapeGoalFull(v, dt, num_points);
 
     Eigen::MatrixXd Q_fast = Eigen::MatrixXd::Zero(6, 6);
-    Q_fast.diagonal() << 1e-1, 1e-1, 1e-0, 1e-9, 1e-6, 1e-6;
-    Q_fast *= 1e3;
-    Eigen::MatrixXd R_fast = Eigen::MatrixXd::Identity(2, 2) * 1e2;
+    Q_fast.diagonal() << 1, 1, 1, 1, 1, 1;
+    Q_fast *= 1.0e16;
+    Eigen::MatrixXd R_fast = Eigen::MatrixXd::Identity(2, 2) * 1.0;
 
 
     std::array<Eigen::Matrix<double, 6, 1>, 2> state_bounds;

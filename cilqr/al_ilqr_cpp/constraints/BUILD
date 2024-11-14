@@ -5,7 +5,7 @@ cc_library(
     hdrs = [
         "constraints.h",
     ],
-    copts = ["-O3", "-march=native"],
+    copts = ["-O3", "-march=native", "-DEIGEN_VECTORIZE"],
     deps = [
         "@eigen",
     ],
@@ -17,7 +17,7 @@ cc_library(
     hdrs = [
         "linear_constraints.h",
     ],
-    copts = ["-O3", "-march=native"],
+    copts = ["-O3", "-march=native", "-DEIGEN_VECTORIZE"],
     deps = [
         ":constraints",
     ],
@@ -29,9 +29,21 @@ cc_library(
     hdrs = [
         "box_constraints.h",
     ],
-    copts = ["-O3", "-march=native"],
+    copts = ["-O3", "-march=native", "-DEIGEN_VECTORIZE"],
     deps = [
         ":linear_constraints",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+cc_library(
+    name = "quadratic_constraints",
+    hdrs = [
+        "quadratic_constraints.h",
+    ],
+    copts = ["-O3", "-march=native", "-DEIGEN_VECTORIZE"],
+    deps = [
+        ":constraints",
     ],
     visibility = ["//visibility:public"],
 )
@@ -42,11 +54,11 @@ cc_binary(
     srcs = [
         "test_constraints.cc",
     ],
-    copts = ["-O3", "-march=native"],
     deps = [
         ":constraints",
         ":box_constraints",
         ":linear_constraints",
+        ":quadratic_constraints",
     ],
     visibility = ["//visibility:public"],
 )
@@ -56,11 +68,12 @@ cc_library(
     hdrs = [
         "constraints_bind.h",
     ],
-    copts = ["-O3", "-march=native"],
+    copts = ["-O3", "-march=native", "-DEIGEN_VECTORIZE"],
     deps = [
         ":constraints",
         ":box_constraints",
         ":linear_constraints",
+        ":quadratic_constraints",
         "@eigen",
     ],
     visibility = ["//visibility:public"],

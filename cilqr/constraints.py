@@ -89,17 +89,17 @@ class Constraints(ABC):
         self.cx, self.cu = self.constrains_jacobian(x, u)
         factor = temp_lambda - self._mu * temp_c
         if self.is_equality:
-            dxdx = self._mu * ((self.cx.T @ self.cx) - np.einsum('ij,jkl->kl', factor.T, self.hx))
-            dxdu = self._mu * ((self.cx.T @ self.cu) - np.einsum('ij,jkl->kl', factor.T, self.hxu))
-            dudu = self._mu * ((self.cu.T @ self.cu) - np.einsum('ij,jkl->kl', factor.T, self.hu))
+            dxdx = self._mu * ((self.cx.T @ self.cx)) - np.einsum('ij,jkl->kl', factor.T, self.hx)
+            dxdu = self._mu * ((self.cx.T @ self.cu)) - np.einsum('ij,jkl->kl', factor.T, self.hxu)
+            dudu = self._mu * ((self.cu.T @ self.cu)) - np.einsum('ij,jkl->kl', factor.T, self.hu)
         else:
             self.lambda_proj = self.projection(factor)
             self.proj_jac = self.projection_jacobian(factor)
             jac_proj_cx = self.proj_jac @ self.cx
             jac_proj_cu = self.proj_jac @ self.cu
-            dxdx = self._mu * ((jac_proj_cx.T @ jac_proj_cx) - np.einsum('ij,jkl->kl', self.lambda_proj.T, self.hx))
-            dxdu = self._mu * ((jac_proj_cx.T @ jac_proj_cu) - np.einsum('ij,jkl->kl', self.lambda_proj.T, self.hxu))
-            dudu = self._mu * ((jac_proj_cu.T @ jac_proj_cu) - np.einsum('ij,jkl->kl', self.lambda_proj.T, self.hu))
+            dxdx = self._mu * ((jac_proj_cx.T @ jac_proj_cx)) - np.einsum('ij,jkl->kl', self.lambda_proj.T, self.hx)
+            dxdu = self._mu * ((jac_proj_cx.T @ jac_proj_cu)) - np.einsum('ij,jkl->kl', self.lambda_proj.T, self.hxu)
+            dudu = self._mu * ((jac_proj_cu.T @ jac_proj_cu)) - np.einsum('ij,jkl->kl', self.lambda_proj.T, self.hu)
 
         return dxdx.astype(np.float64), dudu.astype(np.float64), dxdu.astype(np.float64)
 

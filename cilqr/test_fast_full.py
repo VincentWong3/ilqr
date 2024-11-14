@@ -1,4 +1,6 @@
 import numpy as np
+import matplotlib
+matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 from lat_bicycle_node import LatBicycleKinematicNode
 from fast_bicycle_node import *
@@ -39,7 +41,7 @@ Q_full = np.diag([1e-1, 1e-1, 1e-0, 1e-9, 1e-6, 1e-6]) * 1e3
 R_full = np.array([[1, 0], [0, 1]]) * 1e2
 
 # 定义状态和控制的范围（设置成较大范围以忽略约束）
-state_bounds_full = np.array([[-1000, -1000, -2 * np.pi, -10, -100, -10], [1000, 1000, 2 * np.pi, 10, 100, 10]])
+state_bounds_full = np.array([[-1000, -1000, -2 * np.pi, -10, -100, -10], [30, 10, 2 * np.pi, 10, 100, 10]])
 control_bounds_full = np.array([[-0.2, -1], [0.2, 1]])
 
 constraints = BoxConstraint(state_bounds_full[0], state_bounds_full[1], control_bounds_full[0], control_bounds_full[1])

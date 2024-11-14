@@ -1,15 +1,19 @@
 #include <iostream>
 #include "box_constraints.h"
+#include "quadratic_constraints.h"
 #include <memory>
 
 int main() {
     constexpr int state_dim = 6;
     constexpr int control_dim = 2;
+    constexpr int constraint_dim = 2;
+
 
     Eigen::Matrix<double, state_dim, 1> state_min;
     Eigen::Matrix<double, state_dim, 1> state_max;
     Eigen::Matrix<double, control_dim, 1> control_min;
     Eigen::Matrix<double, control_dim, 1> control_max;
+
 
     state_min << -1, -1, -1, -1, -1, -1;
     state_max << 1, 1, 1, 1, 1, 1;
@@ -20,11 +24,32 @@ int main() {
     
     // Constraints<state_dim, control_dim, 2 * (state_dim + control_dim)>* ptr = &box_constraints;
 
+    std::array<Eigen::Matrix<double, state_dim, state_dim>, constraint_dim> Q;
+    Eigen::Matrix<double, constraint_dim, state_dim> A;
+    Eigen::Matrix<double, constraint_dim, control_dim> B;
+    Eigen::Matrix<double, constraint_dim, 1> C;
+
+    for (int i = 0; i < constraint_dim; ++i) {
+        Q[i] = Eigen::Matrix<double, state_dim, state_dim>::Identity() * (i + 1);
+    }
+    A.setConstant(0.0);
+    B.setConstant(0.0);
+    C.setConstant(0.0);
+
+    QuadraticConstraints<state_dim, control_dim, constraint_dim> quad_constraints(Q, A, B, C);
+
     Eigen::Matrix<double, state_dim, 1> x;
     Eigen::Matrix<double, control_dim, 1> u;
 
-    x << -3, -2, -1, 0, 1, 2;
-    u << -1, 3;
+    x << 1, 1, 1, 1, 1, 1;
+    u << 1, 1;
+
+    Eigen::Matrix<double, state_dim, 2> x_para;
+    Eigen::Matrix<double, control_dim, 2> u_para;
+
+    x_para << 1,2,1,2,1,2,1,2,1,2,1,2;
+    u_para << 1,2,1,2;
+
 
     auto c = box_constraints.constraints(x, u);
     std::cout << "Constraints: \n" << c << std::endl;
@@ -46,6 +71,22 @@ int main() {
     std::cout << "Aug Hessian hx: \n" << std::get<0>(box_aug_hessian) << std::endl;
     std::cout << "Aug Hessian hu: \n" << std::get<1>(box_aug_hessian) << std::endl;
     std::cout << "Aug Hessian hxu: \n" << std::get<2>(box_aug_hessian) << std::endl;
+
+    auto c_quad = quad_constraints.constraints(x, u);
+    std::cout << "Quadratic Constraints: \n" << c_quad << std::endl;
+
+    auto quad_jacobian = quad_constraints.constraints_jacobian(x, u);
+    std::cout << "Quadratic Jacobian A: \n" << quad_jacobian.first << std::endl;
+    std::cout << "Quadratic Jacobian B: \n" << quad_jacobian.second << std::endl;
+
+    auto quad_hessian = quad_constraints.constraints_hessian(x, u);
+    std::cout << "Quadratic Hessian hx: \n" << std::get<0>(quad_hessian)[0] << std::endl;
+    std::cout << "Quadratic Hessian hu: \n" << std::get<1>(quad_hessian)[0] << std::endl;
+    std::cout << "Quadratic Hessian hxu: \n" << std::get<2>(quad_hessian)[0] << std::endl;
+
+    // auto para_quad_c = quad_constraints.parallel_constraints(x_para, u_para);
+
+    // std::cout << "Quadratic para quad c: \n" << para_quad_c << std::endl;
 
 
 

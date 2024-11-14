@@ -1,4 +1,5 @@
 #include "constraints/box_constraints.h"
+#include "constraints/quadratic_constraints.h"
 #include "new_al_ilqr.h"
 #include <memory>
 #include <vector>
@@ -22,6 +23,20 @@ std::vector<Eigen::VectorXd> generateSShapeGoalFull(double v, double dt, int num
         goals.push_back(goal_state);
     }
     return goals;
+}
+
+std::tuple<Eigen::MatrixXd, Eigen::MatrixXd, Eigen::MatrixXd> GenerateCycleEquations(double centre_x, double centre_y, double r, int x_dims) {
+    Eigen::MatrixXd Q(x_dims, x_dims);
+    Eigen::MatrixXd A(1, x_dims);
+    Eigen::MatrixXd C(1, 1);
+    C << r * r - centre_x * centre_x - centre_y * centre_y;
+    Q.setZero();
+    A.setZero();
+    Q(0, 0) = -1.0;
+    Q(1, 1) = -1.0;
+    A(0, 0) = 2 * centre_x;
+    A(0, 1) = 2 * centre_y;
+    return {Q, A, C};
 }
 
 
@@ -64,7 +79,59 @@ int main() {
 
     solver.optimize(50, 100, 1e-3);
 
+    for(int i = 0; i < num_points - 1; ++i) {
+        std::cout << "u_result " << solver.get_u_list().col(i).transpose() << std::endl;
+    }
 
+    for(int i = 0; i < num_points - 1; ++i) {
+        std::cout << "x_result " << solver.get_x_list().col(i).transpose() << std::endl;
+    }
+
+    constexpr  int constraint_dim = 5;
+    Eigen::Matrix<double, constraint_dim, 6> A;
+    Eigen::Matrix<double, constraint_dim, 2> B;
+    Eigen::Matrix<double, constraint_dim, 1> C;
+    A.setZero();
+    B.setZero();
+    C.setZero();
+    B << 0, 0, 1, 0, 0, 1, -1, 0, 0, -1;
+    C << 0, -0.2, -1, -0.2, -1;
+    std::array<Eigen::Matrix<double, 6, 6>, constraint_dim> Q;
+
+    for (int i = 0; i < constraint_dim; ++i) {
+        Q[i] = Eigen::Matrix<double, 6, 6>::Zero();
+    }
+
+    auto ans = GenerateCycleEquations(20.0, 12, 4.0, 6);
+
+    Q[0] = std::get<0>(ans);
+    C(0, 0) = (std::get<2>(ans)).value();
+    A.row(0) = std::get<1>(ans);
+
+
+    QuadraticConstraints<6, 2, constraint_dim> quad_constrants(Q, A, B, C);
+
+    std::vector<std::shared_ptr<NewILQRNode<6, 2>>> q_ilqr_node_list;
+
+    q_ilqr_node_list.clear();
+
+    for (int i = 0; i <= num_points; ++i) {
+        q_ilqr_node_list.push_back(std::make_shared<NewBicycleNode<QuadraticConstraints<6, 2, constraint_dim>>>(L, dt, 0.001, goal_list_fast[i], Q_fast, R_fast, quad_constrants));
+    }
+
+    NewALILQR<6,2> q_solver(q_ilqr_node_list, init_state);
+
+    q_solver.optimize(30, 100, 1e-3);
+
+    for(int i = 0; i < num_points - 1; ++i) {
+        std::cout << "q u_result " << q_solver.get_u_list().col(i).transpose() << std::endl;
+    }
+
+    for(int i = 0; i < num_points - 1; ++i) {
+        std::cout << "q x_result " << q_solver.get_x_list().col(i).transpose() << std::endl;
+    }
+
+    
 
     return 0;
 }

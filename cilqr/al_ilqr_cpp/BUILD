@@ -7,7 +7,7 @@ cc_library(
         "al_ilqr.h", 
         "io_struct.h",
         ],
-    copts = ["-O3", "-march=native"],
+    copts = ["-O3", "-march=native", "-DEIGEN_VECTORIZE"],
     deps = [
         "@eigen",
         "//model:all_models",
@@ -17,7 +17,7 @@ cc_library(
 cc_binary(
     name = "al_ilqr_test",
     srcs = ["al_ilqr_test.cc"],
-    copts = ["-O3", "-march=native"],
+    copts = ["-O3", "-march=native", "-DEIGEN_VECTORIZE"],
     deps = [
         "//:al_ilqr",
     ],
@@ -31,7 +31,7 @@ cc_binary(
         "//constraints:box_constraints",
         ":new_al_ilqr",
     ],
-    copts = ["-O3", "-march=native", "-faligned-new"],
+    copts = ["-O3", "-march=native", "-faligned-new", "-DEIGEN_VECTORIZE"],
 )
 
 cc_library(
@@ -44,7 +44,7 @@ cc_library(
         "//model:new_bicycle_node",
         "//constraints:box_constraints",
     ],
-    copts = ["-O3", "-march=native"],
+    copts = ["-O3", "-march=native", "-DEIGEN_VECTORIZE"],
 )
 
 
@@ -55,8 +55,21 @@ cc_binary(
         ":new_al_ilqr",
         "//model:new_bicycle_node",
         "//constraints:box_constraints",
+        "//constraints:quadratic_constraints",
     ],
-    copts = ["-O3", "-march=native", "-faligned-new"],
+    copts = ["-O3", "-march=native", "-faligned-new", "-DEIGEN_VECTORIZE"],
+)
+
+cc_binary(
+    name = "test_lat_al_ilqr",
+    srcs = ["test_lat_al_ilqr.cc"],
+    deps = [
+        ":new_al_ilqr",
+        "//model:new_lat_bicycle_node",
+        "//constraints:box_constraints",
+        "//constraints:quadratic_constraints",
+    ],
+    copts = ["-O3", "-march=native", "-faligned-new", "-DEIGEN_VECTORIZE"],
 )
 
 
@@ -72,7 +85,7 @@ pybind_extension(
          ":new_al_ilqr",
          "@eigen",
      ],
-     copts = ["-O3", "-march=native", "-faligned-new"],
+     copts = ["-O3", "-march=native", "-faligned-new", "-DEIGEN_VECTORIZE"],
 )
 
 py_library(

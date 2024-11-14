@@ -40,6 +40,8 @@ public:
     virtual VectorState dynamics(const Eigen::Ref<const VectorState>& state,
                                  const Eigen::Ref<const VectorControl>& control) const = 0;
 
+    virtual Eigen::MatrixXd parallel_dynamics(const Eigen::Ref<const Eigen::MatrixXd>& state, const Eigen::Ref<const Eigen::MatrixXd>& control) const = 0;
+
     virtual double cost(const Eigen::Ref<const VectorState>& state, const Eigen::Ref<const VectorControl>& control) = 0;
 
     virtual Eigen::Matrix<double, PARALLEL_NUM, 1> parallel_cost(const Eigen::Ref<const Eigen::Matrix<double, state_dim, PARALLEL_NUM>>& state, 
@@ -70,13 +72,6 @@ public:
     virtual double max_constraints_violation(const Eigen::Ref<const VectorState>& state,
                                const Eigen::Ref<const VectorControl>& control) const = 0;
 
-    virtual void CalcAllCost(const Eigen::Ref<const VectorState>& state,
-                             const Eigen::Ref<const VectorControl>& control,
-                             double& cost,
-                             VectorState& dx,
-                             VectorControl& du,
-                             MatrixQ& dxx, 
-                             MatrixR& duu) = 0;
     
 
     VectorState goal() { return goal_; }

@@ -114,13 +114,13 @@ public:
         c = parallel_constraints(x, u);
         Eigen::Matrix<double, constraint_dim, PARALLEL_NUM> parallel_lambda = lambda_.replicate(1, PARALLEL_NUM);
         Eigen::Matrix<double, constraint_dim, PARALLEL_NUM> proj = (parallel_lambda - mu_ * c).cwiseMin(0);
-        Eigen::Matrix<double, PARALLEL_NUM, 1> ans;
-        for (int index = 0; index < PARALLEL_NUM; ++index) {
-            auto temp1 = proj.col(index);
-            ans[index] = (temp1.transpose() * temp1 - lambda_.transpose() * lambda_).value();
-        }
+        Eigen::Array<double, constraint_dim, PARALLEL_NUM> parallel_lambda_array = parallel_lambda.array();
+        Eigen::Array<double, constraint_dim, PARALLEL_NUM> proj_array = proj.array();
+
+        Eigen::Matrix<double, PARALLEL_NUM, 1> ans = (proj_array * proj_array - parallel_lambda_array * parallel_lambda_array).matrix().colwise().sum().transpose();
+
         ans = 0.5 / mu_ * ans;
-       return ans;
+        return ans;
     }
 
     
@@ -131,6 +131,7 @@ public:
         auto jacobian_matrix = constraints_jacobian(x, u);
         auto cx = jacobian_matrix.first;
         auto cu = jacobian_matrix.second;
+
         cx_ = cx;
         cu_ = cu;
         proj_cx_T_ = cx_.transpose();
@@ -151,8 +152,9 @@ public:
             projection_jacobian2(lambda_proj_);
             dx = -proj_cx_T_ * lambda_proj_;
             du = -proj_cu_T_ * lambda_proj_;
-            dxdx_ = proj_cx_T_ * cx_;
-            dudu_ = proj_cu_T_ * cu_;
+            dxdx_ = mu_ * proj_cx_T_ * cx_;
+            dudu_ = mu_ * proj_cu_T_ * cu_;
+            dxdu_.setZero();
         }
 
         return {dx, du};
@@ -165,27 +167,30 @@ public:
                                  const Eigen::Ref<const Eigen::Matrix<double, control_dim, 1>>& u, bool full_newton = false) {
         // Eigen::Matrix<double, constraint_dim, 1> c = constraints(x, u);
 
-        // auto hessian_tensor = constraints_hessian(x, u);
+        auto hessian_tensor = constraints_hessian(x, u);
 
         // auto jacobian_matrix = constraints_jacobian(x, u);
         // auto cx = cx_;
         // auto cu = cu_;
         //Eigen::Matrix<double, state_dim, state_dim> dxdx = Eigen::Matrix<double, state_dim, state_dim>::Zero();
         //Eigen::Matrix<double, control_dim, control_dim> dudu = Eigen::Matrix<double, control_dim, control_dim>::Zero();
-        Eigen::Matrix<double, state_dim, control_dim> dxdu = Eigen::Matrix<double, state_dim, control_dim>::Zero();
-        //Eigen::Matrix<double, constraint_dim, 1> factor = lambda_ - mu_ * c_;
+        //Eigen::Matrix<double, state_dim, control_dim> dxdu = Eigen::Matrix<double, state_dim, control_dim>::Zero();
+        Eigen::Matrix<double, constraint_dim, 1> factor = lambda_ - mu_ * c_;
 
         
         if (is_equality_) {
-            // auto ans = tensor_contract(factor, hessian_tensor);
-            // dxdx = mu_ * ((cx.transpose() * cx) - std::get<0>(ans));
-            // dxdu = mu_ * ((cx.transpose() * cu) - std::get<2>(ans));
-            // dudu = mu_ * ((cu.transpose() * cu) - std::get<1>(ans));
+            auto ans = tensor_contract(factor, hessian_tensor);
+            dxdx_ = mu_ * ((cx_.transpose() * cx_)) - std::get<0>(ans);
+            dxdu_ = mu_ * ((cx_.transpose() * cu_)) - std::get<2>(ans);
+            dudu_ = mu_ * ((cu_.transpose() * cu_)) - std::get<1>(ans);
         } else {
-            // auto ans = tensor_contract(lambda_proj_, hessian_tensor);
+            auto ans = tensor_contract(lambda_proj_, hessian_tensor);
             // Eigen::Matrix<double, constraint_dim, state_dim> jac_proj_cx = proj_jac_ * cx;
             // Eigen::Matrix<double, constraint_dim, control_dim> jac_proj_cu = proj_jac_ * cu;
-            // dxdx = mu_ * ((jac_proj_cx.transpose() * jac_proj_cx) - std::get<0>(ans));
+            dxdx_ =  dxdx_ - 1.0 * std::get<0>(ans);
+            dxdu_ =  dxdu_ - 1.0 * std::get<2>(ans);
+            dudu_ =  dudu_ - 1.0 * std::get<1>(ans);
+
             // dxdu = mu_ * ((jac_proj_cx.transpose() * jac_proj_cu) - std::get<2>(ans));
             // dudu = mu_ * ((jac_proj_cu.transpose() * jac_proj_cu) - std::get<1>(ans));
 
@@ -197,7 +202,7 @@ public:
             //dudu = (proj_cu_T_ * cu_);
         }
 
-        return {mu_ * dxdx_, mu_ * dudu_, dxdu};
+        return {dxdx_, dudu_, dxdu_};
     }
 
     void update_lambda(const Eigen::Ref<const Eigen::Matrix<double, state_dim, 1>>& x, 
@@ -274,11 +279,13 @@ private:
     Eigen::Matrix<double, constraint_dim, 1> lambda_proj_;
     Eigen::Matrix<double, constraint_dim, 1> c_;
     Eigen::Matrix<double, constraint_dim, state_dim> cx_;
+    std::array<Eigen::Matrix<double, state_dim, state_dim>, constraint_dim> cxx_;
     Eigen::Matrix<double, constraint_dim, control_dim> cu_;
     Eigen::Matrix<double, state_dim, constraint_dim> proj_cx_T_;
     Eigen::Matrix<double, control_dim, constraint_dim> proj_cu_T_;
     Eigen::Matrix<double, state_dim, state_dim> dxdx_;
     Eigen::Matrix<double, control_dim, control_dim> dudu_;
+    Eigen::Matrix<double, state_dim, control_dim> dxdu_;
 
 
     double mu_;

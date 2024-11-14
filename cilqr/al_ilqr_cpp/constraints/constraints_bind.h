@@ -3,9 +3,11 @@
 
 #include <pybind11/pybind11.h>
 #include <pybind11/eigen.h>
+#include <array>
 #include "constraints.h"
 #include "linear_constraints.h"
 #include "box_constraints.h"
+#include "quadratic_constraints.h"
 
 namespace py = pybind11;
 
@@ -26,7 +28,7 @@ void bind_constraints(py::module& m, const std::string& class_name) {
         ;
 }
 
-template <int state_dim, int control_dim, int constraint_dim, int parallel_num>
+template <int state_dim, int control_dim, int constraint_dim>
 void bind_linear_constraints(py::module& m, const std::string& class_name) {
     using ConstraintsType = Constraints<state_dim, control_dim, constraint_dim>;
     using LinearConstraintsType = LinearConstraints<state_dim, control_dim, constraint_dim>;
@@ -63,6 +65,28 @@ void bind_box_constraints(py::module& m, const std::string& class_name) {
             py::arg("state_min"), py::arg("state_max"),
             py::arg("control_min"), py::arg("control_max")
         )
+        ;
+}
+
+template <int state_dim, int control_dim, int constraint_dim>
+void bind_quadratic_constraints(py::module& m, const std::string& class_name) {
+    using ConstraintsType = Constraints<state_dim, control_dim, constraint_dim>;
+    using QuadraticConstraintsType = QuadraticConstraints<state_dim, control_dim, constraint_dim>;
+
+    py::class_<QuadraticConstraintsType, ConstraintsType>(m, class_name.c_str())
+        // 绑定构造函数
+        .def(py::init<
+            const std::array<Eigen::Matrix<double, state_dim, state_dim>, constraint_dim>&,
+            const Eigen::Matrix<double, constraint_dim, state_dim>&,
+            const Eigen::Matrix<double, constraint_dim, control_dim>&,
+            const Eigen::Matrix<double, constraint_dim, 1>&,
+            bool>(),
+            py::arg("Q"), py::arg("A"), py::arg("B"), py::arg("C"), py::arg("is_equality") = false)
+        // 绑定成员函数
+        .def("constraints", &QuadraticConstraintsType::constraints)
+        .def("parallel_constraints", &QuadraticConstraintsType::parallel_constraints)
+        .def("constraints_jacobian", &QuadraticConstraintsType::constraints_jacobian)
+        .def("constraints_hessian", &QuadraticConstraintsType::constraints_hessian)
         ;
 }
 

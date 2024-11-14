@@ -3,7 +3,7 @@ cc_library(
     hdrs = [
         "ilqr_node.h",
     ],
-    copts = ["-O3", "-march=native"],
+    copts = ["-O3", "-march=native", "-DEIGEN_VECTORIZE"],
     deps = [
         "@eigen",
     ],
@@ -15,7 +15,7 @@ cc_library(
     hdrs = [
         "full_bicycle_dynamic_node.h",
     ],
-    copts = ["-O3", "-march=native"],
+    copts = ["-O3", "-march=native", "-DEIGEN_VECTORIZE"],
     deps = [
         ":ilqr_node",
         "@eigen",
@@ -28,7 +28,7 @@ cc_library(
     hdrs = [
         "full_bicycle_kinematic_node.h",
     ],
-    copts = ["-O3", "-march=native"],
+    copts = ["-O3", "-march=native", "-DEIGEN_VECTORIZE"],
     deps = [
         ":ilqr_node",
         "@eigen",
@@ -43,7 +43,7 @@ cc_library(
         "full_bicycle_dynamic_node.h",
         "full_bicycle_kinematic_node.h",
     ],
-    copts = ["-O3", "-march=native"],
+    copts = ["-O3", "-march=native", "-DEIGEN_VECTORIZE"],
     deps = [
         ":ilqr_node",
         ":full_bicycle_dynamic_node",
@@ -58,11 +58,12 @@ cc_library(
     hdrs = [
         "new_ilqr_node.h",
     ],
-    copts = ["-O3", "-march=native"],
+    copts = ["-O3", "-march=native", "-DEIGEN_VECTORIZE"],
     deps = [
         "@eigen",
         "//constraints:box_constraints",
         ":parallel_compution_function",
+        "//constraints:quadratic_constraints",
     ],
     visibility = ["//visibility:public"],
 )
@@ -72,10 +73,24 @@ cc_library(
     hdrs = [
         "new_bicycle_node.h",
     ],
-    copts = ["-O3", "-march=native"],
+    copts = ["-O3", "-march=native", "-DEIGEN_VECTORIZE"],
     deps = [
         "@eigen",
         "//constraints:box_constraints",
+        "//constraints:quadratic_constraints",
+        ":new_ilqr_node",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+cc_library(
+    name = "new_lat_bicycle_node",
+    hdrs = [
+        "new_lat_bicycle_node.h",
+    ],
+    copts = ["-O3", "-march=native", "-DEIGEN_VECTORIZE"],
+    deps = [
+        "@eigen",
         ":new_ilqr_node",
     ],
     visibility = ["//visibility:public"],
@@ -86,7 +101,7 @@ cc_library(
     hdrs = [
         "parallel_compution_function.h",
     ],
-    copts = ["-O3", "-march=native"],
+    copts = ["-O3", "-march=native", "-DEIGEN_VECTORIZE"],
     deps = [
         "@eigen",
     ],
@@ -98,9 +113,10 @@ cc_library(
     hdrs = [
         "node_bind.h",
     ],
-    copts = ["-O3", "-march=native"],
+    copts = ["-O3", "-march=native", "-DEIGEN_VECTORIZE"],
     deps = [
         ":new_bicycle_node",
+        ":new_lat_bicycle_node",
         "@eigen",
     ],
     visibility = ["//visibility:public"],

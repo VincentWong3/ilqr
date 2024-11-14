@@ -1,1 +1,1 @@
-
+bazel_dep(name = "pybind11_bazel", version = "2.11.1")

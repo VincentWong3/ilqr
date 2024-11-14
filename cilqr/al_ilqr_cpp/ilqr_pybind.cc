@@ -12,7 +12,7 @@
 
 namespace py = pybind11;
 
-template <int state_dim, int control_dim, int horizon>
+template <int state_dim, int control_dim>
 void bind_new_al_ilqr(py::module& m, const std::string& class_name) {
     using NewALILQRType = NewALILQR<state_dim, control_dim>;
     using VectorState = Eigen::Matrix<double, state_dim, 1>;
@@ -30,25 +30,40 @@ void bind_new_al_ilqr(py::module& m, const std::string& class_name) {
 }
 
 PYBIND11_MODULE(ilqr_pybind, m) {
-    constexpr int state_dim = 6;
-    constexpr int control_dim = 2;
-    constexpr int constraint_dim = 2 * (state_dim + control_dim);
-    constexpr int parallel_num = PARALLEL_NUM;  // 确保与定义一致
+    
+    bind_constraints<6, 2, 16>(m, "Constraints6_2_16");
 
-    // 绑定 Constraints<6, 2, 16> 类
-    bind_constraints<state_dim, control_dim, constraint_dim>(m, "Constraints6_2_16");
+    bind_constraints<6, 2, 5>(m, "Constraints6_2_5");
 
-    // 绑定 LinearConstraints<6, 2, 16> 类
-    bind_linear_constraints<state_dim, control_dim, constraint_dim, parallel_num>(m, "LinearConstraints6_2_16");
+    bind_constraints<4, 1, 10>(m, "Constraints4_1_10");
 
-    // 绑定 BoxConstraints<6, 2> 类
-    bind_box_constraints<state_dim, control_dim>(m, "BoxConstraints6_2");
+    bind_constraints<4, 1, 3>(m, "Constraints4_1_3");
 
-    bind_new_ilqr_node<state_dim, control_dim>(m, "ILQRNode6_2");
+    bind_linear_constraints<6, 2, 16>(m, "LinearConstraints6_2_16");
 
-    bind_new_bicycle_node<BoxConstraints<state_dim, control_dim>>(m, "NewBicycleNode6_2");
+    bind_linear_constraints<4, 1, 10>(m, "LinearConstraints4_1_10");
 
-    bind_new_al_ilqr<state_dim, control_dim, 50>(m, "NewALILQR6_2");
+    bind_box_constraints<6, 2>(m, "BoxConstraints6_2");
+
+    bind_box_constraints<4, 1>(m, "BoxConstraints4_1");
+
+    bind_quadratic_constraints<6, 2, 5>(m, "QuadraticConstraints6_2_5");
+
+    bind_quadratic_constraints<4, 1, 3>(m, "QuadraticConstraints4_1_3");
+
+    bind_new_ilqr_node<6, 2>(m, "ILQRNode6_2");
+
+    bind_new_ilqr_node<4, 1>(m, "ILQRNode4_1");
+
+    bind_new_bicycle_node<BoxConstraints<6, 2>>(m, "NewBicycleNodeBoxConstraints6_2");
+
+    bind_new_bicycle_node<QuadraticConstraints<6, 2, 5>>(m, "NewBicycleNodeQuadraticConstraints6_2_5");
+
+    bind_new_lat_bicycle_node<QuadraticConstraints<4, 1, 3>>(m, "NewLatBicycleNodeQuadraticConstraints4_1_3");
+
+    bind_new_al_ilqr<6, 2>(m, "NewALILQR6_2");
+
+    bind_new_al_ilqr<4, 1>(m, "NewALILQR4_1");
 }
 
 

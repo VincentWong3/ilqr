@@ -38,6 +38,41 @@ public:
         return state_next;
     }
 
+    Eigen::MatrixXd parallel_dynamics_continuous(const Eigen::Ref<const Eigen::MatrixXd>& state, const Eigen::Ref<const Eigen::MatrixXd>& control) const {
+        int state_rows = state.rows();
+        int state_cols = state.cols();
+        auto theta_list_matrix_raw = state.row(2);
+        auto delta_list_matrix_raw = state.row(3);
+        Eigen::MatrixXd v_list_matrix_raw = state.row(4);
+        auto a_list_matrix_raw = state.row(5);
+        auto v_cos_theta_array = v_list_matrix_raw.array() * theta_list_matrix_raw.array().cos();
+        auto v_sin_theta_array = v_list_matrix_raw.array() * theta_list_matrix_raw.array().sin();
+        Eigen::MatrixXd ones = v_list_matrix_raw;
+        ones.setOnes();
+        auto v_tan_delta_array_divide_L = v_list_matrix_raw.array() * delta_list_matrix_raw.array().tan() * (ones.array() + k_ * v_list_matrix_raw.array() * v_list_matrix_raw.array()).inverse() / L_;
+
+        Eigen::MatrixXd state_dot(state_rows, state_cols);
+
+        state_dot.row(0) = v_cos_theta_array.matrix();
+        state_dot.row(1) = v_sin_theta_array.matrix();
+        state_dot.row(2) = v_tan_delta_array_divide_L.matrix();
+        state_dot.row(3) = control.row(0);
+        state_dot.row(4) = a_list_matrix_raw;
+        state_dot.row(5) = control.row(1);
+        return state_dot;
+    }
+
+
+    Eigen::MatrixXd parallel_dynamics(const Eigen::Ref<const Eigen::MatrixXd>& state, const Eigen::Ref<const Eigen::MatrixXd>& control) const override {
+        Eigen::MatrixXd state_dot = parallel_dynamics_continuous(state, control);
+        Eigen::MatrixXd mid_state = state + state_dot * dt_ * 0.5;
+        Eigen::MatrixXd mid_state_dot = parallel_dynamics_continuous(mid_state, control);
+        Eigen::MatrixXd next_state = state + mid_state_dot * dt_;
+        return next_state;
+    }
+
+
+
     VectorState dynamics_continuous(const Eigen::Ref<const VectorState>& state, const Eigen::Ref<const VectorControl>& control) const {
         VectorState x_dot;
 
@@ -176,14 +211,13 @@ public:
         Eigen::Array<double, 6, PARALLEL_NUM> error_array = error.array();
         Eigen::Array<double, 2, PARALLEL_NUM> R_array = (R_.diagonal().replicate(1, PARALLEL_NUM)).array();
         Eigen::Array<double, 2, PARALLEL_NUM> control_array = control.array();
-        Eigen::Matrix<double, 6, PARALLEL_NUM> new_error = (error_array * Q_array).matrix();
-        Eigen::Matrix<double, 2, PARALLEL_NUM> new_control = (R_array * control_array).matrix();
-        Eigen::Matrix<double, PARALLEL_NUM, 1> ans1;
-        for (int index = 0; index < PARALLEL_NUM; ++index) {
-            auto temp1 = new_error.col(index);
-            auto temp2 = new_control.col(index);
-            ans1[index] = (temp1.transpose() * error.col(index) + temp2.transpose() * control.col(index)).value();
-        }
+        Eigen::Array<double, 6, PARALLEL_NUM> new_error_array = (error_array * Q_array);
+        Eigen::Array<double, 2, PARALLEL_NUM> new_control_array = (R_array * control_array);
+        Eigen::Matrix<double, PARALLEL_NUM, 1> cost_q = (error_array * new_error_array).matrix().colwise().sum().transpose();
+        Eigen::Matrix<double, PARALLEL_NUM, 1> cost_r = (new_control_array * control_array).matrix().colwise().sum().transpose();
+
+        Eigen::Matrix<double, PARALLEL_NUM, 1> ans1 = cost_q + cost_r;
+
         Eigen::Matrix<double, PARALLEL_NUM, 1> ans2 = constraints_.parallel_augmented_lagrangian_cost(state, control);
         return ans1 + ans2;
     }
@@ -234,24 +268,6 @@ public:
     double max_constraints_violation(const Eigen::Ref<const VectorState>& state,
                                const Eigen::Ref<const VectorControl>& control) const override {
         return constraints_.max_violation(state, control);
-    }
-
-    void CalcAllCost(const Eigen::Ref<const VectorState>& state,
-                             const Eigen::Ref<const VectorControl>& control,
-                             double& cost,
-                             VectorState& dx,
-                             VectorControl& du,
-                             MatrixQ& dxx, 
-                             MatrixR& duu) override {
-        constraints_.CalcAllConstrainInfo(state, control, aug_cost_, aug_dx_, aug_du_, aug_dxx_, aug_duu_, aug_dxu_);
-        VectorState state_error = state - this->goal_;
-        double state_cost = (state_error.transpose() * Q_ * state_error).value();
-        double control_cost = (control.transpose() * R_ * control).value();
-        cost = state_cost + control_cost + aug_cost_;
-        dx = 2 * Q_ * state_error + aug_dx_;
-        du = 2 * R_ * control + aug_du_;
-        dxx = 2 * Q_ + aug_dxx_;
-        duu = 2 * R_ + aug_duu_;
     }
 
 public:
