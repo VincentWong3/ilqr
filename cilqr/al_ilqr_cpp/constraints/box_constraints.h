@@ -19,7 +19,7 @@ public:
                                                                                    generateB(control_min, control_max),
                                                                                    generateC(state_min, state_max, control_min, control_max)) {}
     void UpdateConstraints(const Eigen::Ref<const Eigen::Matrix<double, 1, state_dim>> A_rows, double C_rows) override {
-        bool exist = (C_.array() == C_rows).any();
+        bool exist = (this->C_.array() == C_rows).any();
         if (exist) {
             return;
         }
