@@ -48,6 +48,30 @@ cc_library(
     visibility = ["//visibility:public"],
 )
 
+cc_library(
+    name = "dynamic_constraints",
+    hdrs = [
+        "dynamic_constraints.h",
+    ],
+    copts = ["-O3", "-march=native", "-DEIGEN_VECTORIZE"],
+    deps = [
+        "@eigen",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+cc_library(
+    name = "dynamic_linear_constraints",
+    hdrs = [
+        "dynamic_linear_constraints.h",
+    ],
+    copts = ["-O3", "-march=native", "-DEIGEN_VECTORIZE"],
+    deps = [
+        ":dynamic_constraints",
+    ],
+    visibility = ["//visibility:public"],
+)
+
 
 cc_binary(
     name = "test_constraints",
@@ -59,6 +83,7 @@ cc_binary(
         ":box_constraints",
         ":linear_constraints",
         ":quadratic_constraints",
+        ":dynamic_linear_constraints",
     ],
     visibility = ["//visibility:public"],
 )

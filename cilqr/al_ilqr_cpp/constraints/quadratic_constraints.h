@@ -54,6 +54,15 @@ public:
         return std::make_pair(A_ + Q_x, B_);
     }
 
+    void UpdateConstraints(const Eigen::Ref<const Eigen::Matrix<double, 1, state_dim>> A_rows, double C_rows) override {
+        bool exist = (C_.array() == C_rows).any();
+        if (exist) {
+            return;
+        }
+        A_.row(this->current_constraints_index_) = A_rows;
+        C_[this->current_constraints_index_] =  C_rows;
+    }
+
     std::tuple<std::array<Eigen::Matrix<double, state_dim, state_dim>, constraint_dim>,
                        std::array<Eigen::Matrix<double, control_dim, control_dim>, constraint_dim>,
                        std::array<Eigen::Matrix<double, state_dim, control_dim>, constraint_dim>>

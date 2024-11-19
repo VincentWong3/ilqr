@@ -44,8 +44,90 @@ public:
         k_list_.resize(horizon_);
         dynamics_hession_x_list_.resize(horizon_);
         cost_list_.resize(horizon_ + 1);
+        obs_constraints_ = false;
+        left_obs_size_ = 0;
+        right_obs_size_ = 0;
     }
+
+    NewALILQR(const std::vector<std::shared_ptr<NewILQRNode<state_dim, control_dim>>>& ilqr_nodes,
+        const VectorState& init_state, 
+        const std::vector<Eigen::Matrix<double, 2, 4>>& left_obs, 
+        const std::vector<Eigen::Matrix<double, 2, 4>>& right_obs)
+        : NewALILQR(ilqr_nodes, init_state) {
+        
+        l_obs_y_max_.clear();
+        r_obs_y_min_.clear();
+        for (auto element : left_obs) {
+            l_obs_y_max_.push_back(element.row(1).maxCoeff());
+        }
+        for (auto element : right_obs) {
+            r_obs_y_min_.push_back(element.row(1).minCoeff());
+        }
+
+        obs_constraints_ = true;
+        left_obs_size_ = left_obs.size();
+        right_obs_size_ = right_obs.size();
+        obs_constraints_ = ((left_obs_size_ != 0) || (right_obs_size_ != 0));
+
+        if (left_obs_size_ > 0) {
+            l_point1_ = Eigen::MatrixXd(2, left_obs_size_);
+            l_point2_ = l_point1_;
+            l_point3_ = l_point1_;
+            l_point4_ = l_point1_;
+            l_vector1_ = l_point1_;
+            l_vector2_ = l_point2_;
+            l_vector3_ = l_point3_;
+            l_vector4_ = l_point4_;
+            for (int index = 0; index < left_obs_size_; ++index) {
+                l_point1_.col(index) = left_obs[index].col(0);
+                l_point2_.col(index) = left_obs[index].col(1);
+                l_point3_.col(index) = left_obs[index].col(2);
+                l_point4_.col(index) = left_obs[index].col(3);
+            }
+            l_vector1_ = l_point2_ - l_point1_;
+            l_vector2_ = l_point3_ - l_point2_;
+            l_vector3_ = l_point4_ - l_point3_;
+            l_vector4_ = l_point1_ - l_point4_;
+        }
+
+
+        if (right_obs_size_ > 0) {
+            r_point1_ = Eigen::MatrixXd(2, right_obs_size_);
+            r_point2_ = r_point1_;
+            r_point3_ = r_point1_;
+            r_point4_ = r_point1_;
+            r_vector1_ = r_point1_;
+            r_vector2_ = r_point2_;
+            r_vector3_ = r_point3_;
+            r_vector4_ = r_point4_;
+            for (int index = 0; index < right_obs_size_; ++index) {
+                r_point1_.col(index) = right_obs[index].col(0);
+                r_point2_.col(index) = right_obs[index].col(1);
+                r_point3_.col(index) = right_obs[index].col(2);
+                r_point4_.col(index) = right_obs[index].col(3);
+            }
+            r_vector1_ = r_point2_ - r_point1_;
+            r_vector2_ = r_point3_ - r_point2_;
+            r_vector3_ = r_point4_ - r_point3_;
+            r_vector4_ = r_point1_ - r_point4_;
+        }
+    }
+
+
+    Eigen::ArrayXd MultiVectorCross(const Eigen::MatrixXd& v1_series, const Eigen::MatrixXd& v2_series) {
+        Eigen::ArrayXd v1_x = v1_series.row(0).transpose().array();
+        Eigen::ArrayXd v1_y = v1_series.row(1).transpose().array();
+        Eigen::ArrayXd v2_x = v2_series.row(0).transpose().array();
+        Eigen::ArrayXd v2_y = v2_series.row(1).transpose().array();
+        Eigen::ArrayXd ans = v1_x * v2_y - v1_y * v2_x;
+        return ans;
+    }
+
+
+
     void linearizedInitialGuess();
+    void UpdateConstraints();
+
     void CalcDerivatives(int start, int end);
     void CalcDerivatives();
     double computeTotalCost();
@@ -110,14 +192,126 @@ private:
 public:
 std::vector<std::shared_ptr<NewILQRNode<state_dim, control_dim>>> ilqr_nodes_;
 VectorState init_state_;
+
+Eigen::MatrixXd l_point1_;
+Eigen::MatrixXd l_point2_;
+Eigen::MatrixXd l_point3_;
+Eigen::MatrixXd l_point4_;
+
+Eigen::MatrixXd l_vector1_;
+Eigen::MatrixXd l_vector2_;
+Eigen::MatrixXd l_vector3_;
+Eigen::MatrixXd l_vector4_;
+
+Eigen::MatrixXd r_point1_;
+Eigen::MatrixXd r_point2_;
+Eigen::MatrixXd r_point3_;
+Eigen::MatrixXd r_point4_;
+
+Eigen::MatrixXd r_vector1_;
+Eigen::MatrixXd r_vector2_;
+Eigen::MatrixXd r_vector3_;
+Eigen::MatrixXd r_vector4_;
+
+std::vector<double> l_obs_y_max_;
+std::vector<double> r_obs_y_min_;
+
+int left_obs_size_;
+int right_obs_size_;
+
+
+
+
+
+Eigen::VectorXd obs_y_;
+Eigen::VectorXd obs_r_;
 int horizon_ = 10;
+bool obs_constraints_ = false;
 
 };
+
+
+
+template<int state_dim, int control_dim>
+void NewALILQR<state_dim, control_dim>::UpdateConstraints() {
+
+    Eigen::MatrixXd xs = x_list_.row(0);
+    Eigen::MatrixXd ys = x_list_.row(1);
+    if (left_obs_size_ > 0) {
+        for (int index = 0; index < horizon_ + 1; ++index) {
+            Eigen::Matrix<double, 2, 1> points;
+            points << xs(0,index), ys(0, index);
+            Eigen::MatrixXd points_series = points.replicate(1, left_obs_size_);
+            Eigen::MatrixXd p1 = points_series - l_point1_;
+            Eigen::MatrixXd p2 = points_series - l_point2_;
+            Eigen::MatrixXd p3 = points_series - l_point3_;
+            Eigen::MatrixXd p4 = points_series - l_point4_;
+            Eigen::ArrayXd p1_cross_lv1 = MultiVectorCross(p1, l_vector1_);
+            Eigen::ArrayXd p2_cross_lv2 = MultiVectorCross(p2, l_vector2_);
+            Eigen::ArrayXd p3_cross_lv3 = MultiVectorCross(p3, l_vector3_);
+            Eigen::ArrayXd p4_cross_lv4 = MultiVectorCross(p4, l_vector4_);
+            // point in the box
+            Eigen::Array<bool, Eigen::Dynamic, 1> ans = (p1_cross_lv1 < 0) && (p2_cross_lv2 < 0) && (p3_cross_lv3 < 0) && (p4_cross_lv4 < 0);
+            Eigen::ArrayXi indices = Eigen::ArrayXi::LinSpaced(ans.size(), 0, ans.size() - 1);
+            std::vector<int> true_indices;
+            true_indices.clear();
+            for (int i = 0; i < ans.size(); ++i) {
+                if (ans[i]) {
+                   true_indices.push_back(i);
+                }
+            }
+            Eigen::Matrix<double, 1, state_dim> A_rows;
+            A_rows.setZero();
+            A_rows(0, 1) = -1.0;
+            for (size_t i = 0; i < true_indices.size(); ++i) {
+                int obs_index = true_indices[i];
+                double y_max = l_obs_y_max_[obs_index];
+                ilqr_nodes_[index]->update_constraints(A_rows, y_max);
+            }
+        }
+    }
+
+    if (right_obs_size_ > 0) {
+        for (int index = 0; index < horizon_ + 1; ++index) {
+            Eigen::Matrix<double, 2, 1> points;
+            points << xs(0,index), ys(0, index);
+            Eigen::MatrixXd points_series = points.replicate(1, right_obs_size_);
+            Eigen::MatrixXd p1 = points_series - r_point1_;
+            Eigen::MatrixXd p2 = points_series - r_point2_;
+            Eigen::MatrixXd p3 = points_series - r_point3_;
+            Eigen::MatrixXd p4 = points_series - r_point4_;
+            Eigen::ArrayXd p1_cross_rv1 = MultiVectorCross(p1, r_vector1_);
+            Eigen::ArrayXd p2_cross_rv2 = MultiVectorCross(p2, r_vector2_);
+            Eigen::ArrayXd p3_cross_rv3 = MultiVectorCross(p3, r_vector3_);
+            Eigen::ArrayXd p4_cross_rv4 = MultiVectorCross(p4, r_vector4_);
+            // point in the box
+            Eigen::Array<bool, Eigen::Dynamic, 1> ans = (p1_cross_rv1 < 0) && (p2_cross_rv2 < 0) && (p3_cross_rv3 < 0) && (p4_cross_rv4 < 0);
+            std::vector<int> true_indices;
+            true_indices.clear();
+            for (int i = 0; i < ans.size(); ++i) {
+                if (ans[i]) {
+                   true_indices.push_back(i);
+                }
+            }
+            Eigen::Matrix<double, 1, state_dim> A_rows;
+            A_rows.setZero();
+            A_rows(0, 1) = 1.0;
+            for (size_t i = 0; i < true_indices.size(); ++i) {
+                int obs_index = true_indices[i];
+                double y_min = r_obs_y_min_[obs_index];
+                ilqr_nodes_[index]->update_constraints(A_rows, -y_min);
+            }
+        }
+    }
+}
 
 template<int state_dim, int control_dim>
 void NewALILQR<state_dim, control_dim>::linearizedInitialGuess() {
     x_list_.col(0) = init_state_;
+
     u_list_.col(0).setZero();
+
+
     MatrixQ P = ilqr_nodes_[horizon_]->cost_hessian(zero_state_, zero_control_).first.Identity();
     for (int t = horizon_ - 1; t >= 0; --t) {
         auto dynamics_jacobian = ilqr_nodes_[t]->dynamics_jacobian(ilqr_nodes_[t]->goal(), VectorControl::Zero());
@@ -137,6 +331,7 @@ void NewALILQR<state_dim, control_dim>::linearizedInitialGuess() {
         x_list_.col(t + 1) = ilqr_nodes_[t]->dynamics(x_list_.col(t), u_list_.col(t));
 
     }
+
     for (auto node : ilqr_nodes_) {
         node->reset_lambda();
         node->reset_mu();
@@ -242,6 +437,7 @@ void NewALILQR<state_dim, control_dim>::ParallelLinearSearch(double alpha, doubl
     }
     Eigen::Array<double, control_dim, PARALLEL_NUM> real_alpha = (alpha_vector.transpose().replicate(control_dim, 1)).array();
     Eigen::Matrix<double, PARALLEL_NUM, PARALLEL_NUM> alpha_matrix = alpha_vector.asDiagonal();
+
     // auto alpha_prep_end = std::chrono::high_resolution_clock::now();
 
     // std::cout << "Alpha preparation " << " time: " 
@@ -256,6 +452,8 @@ void NewALILQR<state_dim, control_dim>::ParallelLinearSearch(double alpha, doubl
     Eigen::Matrix<double, PARALLEL_NUM, 1> parallel_cost_list_;
     parallel_cost_list_.setZero();
     Eigen::Matrix<double, PARALLEL_NUM, 1> one_cost_list;
+
+
 
     // Main loop through the horizon
     for (int index = 0; index < horizon_; index++) {
@@ -272,6 +470,7 @@ void NewALILQR<state_dim, control_dim>::ParallelLinearSearch(double alpha, doubl
         // auto cost_start = std::chrono::high_resolution_clock::now();
         one_cost_list = ilqr_nodes_[index]->parallel_cost(x_new, u_new);
         // auto cost_end = std::chrono::high_resolution_clock::now();
+
 
         // Measure time for parallel_dynamics
         // auto dynamics_start = std::chrono::high_resolution_clock::now();
@@ -395,6 +594,7 @@ void NewALILQR<state_dim, control_dim>::Forward() {
     }
 }
 
+
 template<int state_dim, int control_dim>
 double NewALILQR<state_dim, control_dim>::ComputeConstraintViolation() {
     for (int index = 0; index < horizon_; ++index) {
@@ -407,8 +607,10 @@ double NewALILQR<state_dim, control_dim>::ComputeConstraintViolation() {
 template<int state_dim, int control_dim>
 void NewALILQR<state_dim, control_dim>::ILQRProcess(int max_iter, double max_tol) {
     using namespace std::chrono;
-
     for(int iter = 0; iter < max_iter; ++iter) {
+        UpdateConstraints();
+
+
         //auto start_CalcDerivatives = high_resolution_clock::now();
         CalcDerivatives();
         //auto end_CalcDerivatives = high_resolution_clock::now();

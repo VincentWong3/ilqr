@@ -75,7 +75,16 @@ int main() {
 
     init_state << 0.0, 0.0, 0.0, 0.0, v, 0.0;
 
-    NewALILQR<6,2> solver(ilqr_node_list, init_state);
+    Eigen::Matrix<double, 2, 4> left_car;
+    left_car << 32, 32, 28, 28,
+                14, 16, 16, 14;
+    std::vector<Eigen::Matrix<double, 2, 4>> left_obs;
+    std::vector<Eigen::Matrix<double, 2, 4>> right_obs;
+    left_obs.push_back(left_car);
+    right_obs.clear();
+
+
+    NewALILQR<6,2> solver(ilqr_node_list, init_state, left_obs, right_obs);
 
     solver.optimize(50, 100, 1e-3);
 

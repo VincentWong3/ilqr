@@ -57,7 +57,18 @@ public:
         return std::make_tuple(hxx, huu, hxu);
     }
 
-private:
+    void UpdateConstraints(const Eigen::Ref<const Eigen::Matrix<double, 1, state_dim>> A_rows, double C_rows) override {
+        bool exist = (C_.array() == C_rows).any();
+        if (exist) {
+            return;
+        }
+
+        this->current_constraints_index_ = this->current_constraints_index_ + 1;
+        A_.row(this->current_constraints_index_) = A_rows;
+        C_[this->current_constraints_index_] =  C_rows;
+    }
+
+public:
     Eigen::Matrix<double, constraint_dim, state_dim> A_;
     Eigen::Matrix<double, constraint_dim, control_dim> B_;
     Eigen::Matrix<double, constraint_dim, 1> C_;

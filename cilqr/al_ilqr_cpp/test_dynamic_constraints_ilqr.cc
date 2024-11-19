@@ -1,5 +1,4 @@
-#include "constraints/box_constraints.h"
-#include "constraints/quadratic_constraints.h"
+#include "constraints/dynamic_linear_constraints.h"
 #include "new_al_ilqr.h"
 #include "model/new_lat_bicycle_node.h"
 #include <memory>
@@ -53,54 +52,42 @@ int main() {
     Q_fast *= 1e3;
     Eigen::MatrixXd R_fast = Eigen::MatrixXd::Identity(1, 1) * 1e2;
 
-    Eigen::Matrix<double, 10, 4> A;
-    A.setZero();
-    Eigen::Matrix<double, 10, 1> B;
-    B.setZero();
-    B(0, 0) = 1;
-    B(1, 0) = -1;
-    Eigen::Matrix<double, 10, 1> C;
-    C.setZero();
-    C(0, 0) = -0.2;
-    C(1, 0) = -0.2;
+    Eigen::Matrix<double, 2, 4> A;
+    A << 0, 0, 0, 0,
+         0, 0, 0, 0;
+    Eigen::Matrix<double, 2, 1> B;
+    B << 1, -1;
+    Eigen::Matrix<double, 2, 1> C;
+    C << -0.2, -0.2;
+
+    DynamicLinearConstraints<4, 1> dynamic_constraints(A, B, C);
 
 
-    LinearConstraints<4, 1, 10> constraints_obj(A, B, C);
-
-    constraints_obj.set_current_constraints_index(1);
+    
 
     std::vector<std::shared_ptr<NewILQRNode<4, 1>>> ilqr_node_list;
 
     ilqr_node_list.clear();
 
     for (int i = 0; i <= num_points; ++i) {
-        ilqr_node_list.push_back(std::make_shared<NewLatBicycleNode<LinearConstraints<4, 1, 10>>>(L, dt, 0.001, v, goal_list_fast[i], Q_fast, R_fast, constraints_obj));
+        ilqr_node_list.push_back(std::make_shared<NewLatBicycleNode<DynamicLinearConstraints<4, 1>>>(L, dt, 0.001, v, goal_list_fast[i], Q_fast, R_fast, dynamic_constraints));
     }
 
     Eigen::Matrix<double, 4,1> init_state;
 
     init_state << 0.0, 0.0, 0.0, 0.0;
 
-    Eigen::Matrix<double, 2, 4> left_car;
-    left_car << 32, 32, 28, 28,
-                14, 16, 16, 14;
-    std::vector<Eigen::Matrix<double, 2, 4>> left_obs;
-    std::vector<Eigen::Matrix<double, 2, 4>> right_obs;
-    left_obs.push_back(left_car);
-    right_obs.clear();
-
-
-    NewALILQR<4,1> solver(ilqr_node_list, init_state, right_obs, left_obs);
+    NewALILQR<4,1> solver(ilqr_node_list, init_state);
 
     solver.optimize(50, 100, 1e-3);
 
-    for(int i = 0; i < num_points - 1; ++i) {
-        std::cout << "u_result " << solver.get_u_list().col(i).transpose() << std::endl;
-    }
+    // for(int i = 0; i < num_points - 1; ++i) {
+    //     std::cout << "u_result " << solver.get_u_list().col(i).transpose() << std::endl;
+    // }
 
-    for(int i = 0; i < num_points - 1; ++i) {
-        std::cout << "x_result " << solver.get_x_list().col(i).transpose() << std::endl;
-    }
+    // for(int i = 0; i < num_points - 1; ++i) {
+    //     std::cout << "x_result " << solver.get_x_list().col(i).transpose() << std::endl;
+    // }
 
 
     // constexpr  int constraint_dim = 5;

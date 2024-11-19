@@ -1,6 +1,7 @@
 #include <iostream>
 #include "box_constraints.h"
 #include "quadratic_constraints.h"
+#include "dynamic_linear_constraints.h"
 #include <memory>
 
 int main() {
@@ -21,6 +22,7 @@ int main() {
     control_max << 2, 2;
 
     BoxConstraints<state_dim, control_dim> box_constraints(state_min, state_max, control_min, control_max);
+
     
     // Constraints<state_dim, control_dim, 2 * (state_dim + control_dim)>* ptr = &box_constraints;
 
@@ -32,9 +34,14 @@ int main() {
     for (int i = 0; i < constraint_dim; ++i) {
         Q[i] = Eigen::Matrix<double, state_dim, state_dim>::Identity() * (i + 1);
     }
-    A.setConstant(0.0);
+    A.setConstant(1.0);
     B.setConstant(0.0);
     C.setConstant(0.0);
+
+    DynamicLinearConstraints<state_dim, control_dim> dynamic_linear_constraints(A, B, C);
+
+    std::cout << "dynamic linear constraints" << std::endl;
+
 
     QuadraticConstraints<state_dim, control_dim, constraint_dim> quad_constraints(Q, A, B, C);
 
@@ -54,13 +61,32 @@ int main() {
     auto c = box_constraints.constraints(x, u);
     std::cout << "Constraints: \n" << c << std::endl;
 
+    auto c_dynamic = dynamic_linear_constraints.constraints(x, u);
+
+    std::cout << "Dynamic Constraints: \n" << c_dynamic << std::endl;
+
+
+
     auto box_jacobian = box_constraints.constraints_jacobian(x, u);
     std::cout << "Jacobian A: \n" << box_jacobian.first << std::endl;
     std::cout << "Jacobian B: \n" << box_jacobian.second << std::endl;
 
+    auto box_jacobian_dynamic = dynamic_linear_constraints.constraints_jacobian(x, u);
+    std::cout << "dynamic Jacobian A: \n" << box_jacobian_dynamic.first << std::endl;
+    std::cout << "dynamic Jacobian B: \n" << box_jacobian_dynamic.second << std::endl;
+
+    double cost = box_constraints.augmented_lagrangian_cost(x, u);
+
     auto box_aug_jacobian = box_constraints.augmented_lagrangian_jacobian(x, u);
     std::cout << "box aug Jacobian A: \n" << box_aug_jacobian.first << std::endl;
     std::cout << "box aug Jacobian B: \n" << box_aug_jacobian.second << std::endl;
+
+    double cost2 = dynamic_linear_constraints.augmented_lagrangian_cost(x, u);
+
+
+    auto box_aug_jacobian_dynamic = dynamic_linear_constraints.augmented_lagrangian_jacobian(x, u);
+    std::cout << "dynamic box aug Jacobian A: \n" << box_aug_jacobian_dynamic.first << std::endl;
+    std::cout << "dynamic box aug Jacobian B: \n" << box_aug_jacobian_dynamic.second << std::endl;
 
     auto box_hessian = box_constraints.constraints_hessian(x, u);
     std::cout << "Hessian hx: \n" << std::get<0>(box_hessian)[0] << std::endl;

@@ -25,6 +25,8 @@ void bind_constraints(py::module& m, const std::string& class_name) {
         .def("projection", &ConstraintsType::projection)
         .def("projection_jacobian", &ConstraintsType::projection_jacobian)
         .def("update_mu", &ConstraintsType::update_mu)
+        .def("set_current_constraints_index", &ConstraintsType::set_current_constraints_index)
+        .def("get_current_constraints_index", &ConstraintsType::get_current_constraints_index)
         ;
 }
 

@@ -69,6 +69,10 @@ public:
 
     virtual void reset_mu() = 0;
 
+    virtual void update_constraints(const Eigen::Ref<const Eigen::Matrix<double, 1, state_dim>> A_rows, double C_rows) {
+        
+    }
+
     virtual double max_constraints_violation(const Eigen::Ref<const VectorState>& state,
                                const Eigen::Ref<const VectorControl>& control) const = 0;
 

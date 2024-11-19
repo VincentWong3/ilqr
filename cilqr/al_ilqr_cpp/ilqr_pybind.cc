@@ -20,9 +20,13 @@ void bind_new_al_ilqr(py::module& m, const std::string& class_name) {
 
     using ILQRNodeVector = std::vector<std::shared_ptr<ILQRNodeType>>;
 
+    using ObsVector = std::vector<Eigen::Matrix<double, 2, 4>>;
+
     py::class_<NewALILQRType, std::shared_ptr<NewALILQRType>>(m, class_name.c_str())
         .def(py::init<const ILQRNodeVector&, const VectorState&>(),
              py::arg("ilqr_nodes"), py::arg("init_state"))
+        .def(py::init<const ILQRNodeVector&, const VectorState&, const ObsVector&, const ObsVector&>(),
+             py::arg("ilqr_nodes"), py::arg("init_state"), py::arg("left_obs"), py::arg("right_obs"))
         .def("optimize", &NewALILQRType::optimize,
              py::arg("max_outer_iter"), py::arg("max_inner_iter"), py::arg("max_violation"))
         .def("get_x_list", &NewALILQRType::get_x_list)
@@ -37,11 +41,15 @@ PYBIND11_MODULE(ilqr_pybind, m) {
 
     bind_constraints<4, 1, 10>(m, "Constraints4_1_10");
 
+    bind_constraints<4, 1, 6>(m, "Constraints4_1_6");
+
     bind_constraints<4, 1, 3>(m, "Constraints4_1_3");
 
     bind_linear_constraints<6, 2, 16>(m, "LinearConstraints6_2_16");
 
     bind_linear_constraints<4, 1, 10>(m, "LinearConstraints4_1_10");
+
+    bind_linear_constraints<4, 1, 6>(m, "LinearConstraints4_1_6");
 
     bind_box_constraints<6, 2>(m, "BoxConstraints6_2");
 
@@ -60,6 +68,9 @@ PYBIND11_MODULE(ilqr_pybind, m) {
     bind_new_bicycle_node<QuadraticConstraints<6, 2, 5>>(m, "NewBicycleNodeQuadraticConstraints6_2_5");
 
     bind_new_lat_bicycle_node<QuadraticConstraints<4, 1, 3>>(m, "NewLatBicycleNodeQuadraticConstraints4_1_3");
+
+    bind_new_lat_bicycle_node<LinearConstraints<4, 1, 6>>(m, "NewLatBicycleNodeLinearConstraints4_1_6");
+
 
     bind_new_al_ilqr<6, 2>(m, "NewALILQR6_2");
 

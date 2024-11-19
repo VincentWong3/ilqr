@@ -227,10 +227,7 @@ public:
     }
 
     void reset_lambda() {
-        auto dim_c = constraints_.get_constraint_dim();
-        Eigen::Matrix<double, Eigen::Dynamic, 1> result(dim_c);
-        result.setZero();
-        constraints_.set_lambda(result);
+        constraints_.reset_lambda();
     }
 
     void reset_mu() {
@@ -241,6 +238,12 @@ public:
                                const Eigen::Ref<const VectorControl>& control) const override {
         return constraints_.max_violation(state, control);
     }
+
+    void update_constraints(const Eigen::Ref<const Eigen::Matrix<double, 1, 4>> A_rows, double C_rows) override {
+        constraints_.UpdateConstraints(A_rows, C_rows);
+    }
+
+
 
 public:
 ConstraintsType constraints_;

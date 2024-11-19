@@ -31,6 +31,10 @@ public:
         lambda_ = lambda;
     }
 
+    void reset_lambda() {
+        lambda_.setZero();
+    }
+
     double mu() const {
         return mu_;
     }
@@ -49,6 +53,18 @@ public:
 
     static constexpr int get_constraint_dim() {
         return constraint_dim;
+    }
+
+    void set_current_constraints_index(int index) {
+        current_constraints_index_ = index;
+    }
+
+    int get_current_constraints_index() {
+        return current_constraints_index_;
+    }
+
+    virtual void UpdateConstraints(const Eigen::Ref<const Eigen::Matrix<double, 1, state_dim>> A_rows, double C_rows) {
+
     }
 
     virtual Eigen::Matrix<double, constraint_dim, PARALLEL_NUM> parallel_constraints(const Eigen::Ref<const Eigen::Matrix<double, state_dim, PARALLEL_NUM>>& x, 
@@ -274,6 +290,10 @@ public:
         }
     }
 
+
+public:
+    int current_constraints_index_ = 0;
+
 private:
     Eigen::Matrix<double, constraint_dim, 1> lambda_;
     Eigen::Matrix<double, constraint_dim, 1> lambda_proj_;
@@ -291,6 +311,7 @@ private:
     double mu_;
     bool is_equality_;
     Eigen::Matrix<double, constraint_dim, constraint_dim> proj_jac_;
+
 
 
 

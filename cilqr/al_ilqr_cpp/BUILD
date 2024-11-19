@@ -60,6 +60,21 @@ cc_binary(
     copts = ["-O3", "-march=native", "-faligned-new", "-DEIGEN_VECTORIZE"],
 )
 
+
+cc_binary(
+    name = "test_dynamic_constraints_ilqr",
+    srcs = ["test_dynamic_constraints_ilqr.cc"],
+    deps = [
+        ":new_al_ilqr",
+        "//model:new_bicycle_node",
+        "//model:new_lat_bicycle_node",
+        "//constraints:box_constraints",
+        "//constraints:quadratic_constraints",
+        "//constraints:dynamic_linear_constraints",
+    ],
+    copts = ["-O3", "-march=native", "-faligned-new", "-DEIGEN_VECTORIZE"],
+)
+
 cc_binary(
     name = "test_lat_al_ilqr",
     srcs = ["test_lat_al_ilqr.cc"],

@@ -108,16 +108,16 @@ public:
         double L = L_;
         double k = k_;
 
-        double theta_mid = theta + 0.5 * dt * v * std::tan(delta) / (L * (k * v * v + 1));
+        // double theta_mid = theta + 0.5 * dt * v * std::tan(delta) / (L * (k * v * v + 1));
         double v_term = 0.5 * a * dt + v;
-        double tan_delta = std::tan(delta);
+        // double tan_delta = std::tan(delta);
         double tan_delta_mid = std::tan(delta + 0.5 * dt * u1);
-        double k_v_sq = k * v * v;
+        // double k_v_sq = k * v * v;
         double k_v_mid_sq = k * v_term * v_term;
-        double denom = L * (k_v_sq + 1);
+        // double denom = L * (k_v_sq + 1);
         double denom_mid = L * (k_v_mid_sq + 1);
-        double cos_theta_mid = std::cos(theta_mid);
-        double sin_theta_mid = std::sin(theta_mid);
+        // double cos_theta_mid = std::cos(theta_mid);
+        // double sin_theta_mid = std::sin(theta_mid);
 
         
 
@@ -268,6 +268,12 @@ public:
     double max_constraints_violation(const Eigen::Ref<const VectorState>& state,
                                const Eigen::Ref<const VectorControl>& control) const override {
         return constraints_.max_violation(state, control);
+    }
+
+    void update_constraints(const Eigen::Ref<const Eigen::Matrix<double, 1, 6>> A_rows, double C_rows) override {
+        if (constraints_.get_current_constraints_index() < constraints_.get_constraint_dim() - 1) {
+            constraints_.UpdateConstraints(A_rows, C_rows);
+        } 
     }
 
 public:
