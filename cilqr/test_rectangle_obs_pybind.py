@@ -61,8 +61,8 @@ C = np.zeros((6, 1))
 B[0, 0] = 1
 B[1, 0] = -1
 
-C[0, 0] = -0.4
-C[1, 0] = -0.4
+C[0, 0] = -0.6
+C[1, 0] = -0.6
 
 linear_constraints = ilqr_pybind.LinearConstraints4_1_6(A, B, C)
 
@@ -75,10 +75,10 @@ obs1 = np.array([[32, 32, 28, 28],
                     [13, 15, 15, 13]])
 
 obs2 = np.array([[18, 18, 14, 14],
-                 [3, 7, 3, 7]])
+                 [3, 7, 7, 3]])
 
 left_obs.append(obs1)
-right_obs.append(obs1)
+right_obs.append(obs2)
 #right_obs.append(obs2)
 
 

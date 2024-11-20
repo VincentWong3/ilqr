@@ -271,9 +271,7 @@ public:
     }
 
     void update_constraints(const Eigen::Ref<const Eigen::Matrix<double, 1, 6>> A_rows, double C_rows) override {
-        if (constraints_.get_current_constraints_index() < constraints_.get_constraint_dim() - 1) {
-            constraints_.UpdateConstraints(A_rows, C_rows);
-        } 
+        constraints_.UpdateConstraints(A_rows, C_rows);
     }
 
 public:
