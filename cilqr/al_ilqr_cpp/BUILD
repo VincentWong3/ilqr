@@ -88,6 +88,22 @@ cc_binary(
 )
 
 
+cc_binary(
+    name = "test_al_inner_ilqr",
+    srcs = ["test_al_lat_inner_ilqr.cc"],
+    deps = [
+        ":new_al_ilqr",
+        "//model:new_lat_bicycle_node",
+        "//model:new_lat_bicycle_node_inner",
+        "//constraints:box_constraints",
+        "//constraints:quadratic_constraints",
+    ],
+    copts = ["-O3", "-march=native", "-faligned-new", "-DEIGEN_VECTORIZE"],
+)
+
+        
+
+
 pybind_extension(
      name = "ilqr_pybind",
      srcs = ["ilqr_pybind.cc"],

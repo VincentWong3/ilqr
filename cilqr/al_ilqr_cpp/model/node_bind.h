@@ -9,6 +9,7 @@
 #include "constraints/box_constraints.h"
 #include "model/new_bicycle_node.h"
 #include "model/new_lat_bicycle_node.h"
+#include "model/new_lat_bicycle_node_inner.h"
 
 namespace py = pybind11;
 
@@ -89,6 +90,44 @@ void bind_new_lat_bicycle_node(py::module& m, const std::string& class_name) {
         .def("reset_lambda", &NewLatBicycleNodeType::reset_lambda)
         .def("reset_mu", &NewLatBicycleNodeType::reset_mu)
         .def("max_constraints_violation", &NewLatBicycleNodeType::max_constraints_violation)
+        ;
+}
+
+template <typename ConstraintsType>
+void bind_new_lat_bicycle_node_inner(py::module& m, const std::string& class_name) {
+    using NewLatBicycleNodeInnerType = NewLatBicycleNodeInner<ConstraintsType>;
+    using BaseClass = NewILQRNode<4, 1>;
+    using VectorState = Eigen::Matrix<double, 4, 1>;
+    using MatrixQ = Eigen::Matrix<double, 4, 4>;
+    using MatrixR = Eigen::Matrix<double, 1, 1>;
+
+    py::class_<NewLatBicycleNodeInnerType, BaseClass, std::shared_ptr<NewLatBicycleNodeInnerType>>(m, class_name.c_str())
+        // 1. 构造函数：包含新增的 umax 参数
+        .def(py::init<double, double, double, double, double, const VectorState&, const MatrixQ&, const MatrixR&, const ConstraintsType&>(),
+             py::arg("L"), py::arg("dt"), py::arg("k"), py::arg("v"), py::arg("umax"), 
+             py::arg("goal"), py::arg("Q"), py::arg("R"), py::arg("constraints"))
+
+        // 2. 动力学相关 (包含你手写的优化版接口)
+        .def("dynamics", &NewLatBicycleNodeInnerType::dynamics)
+        .def("dynamics_continuous", &NewLatBicycleNodeInnerType::dynamics_continuous)
+        .def("parallel_dynamics", &NewLatBicycleNodeInnerType::parallel_dynamics)
+        .def("dynamics_jacobian", &NewLatBicycleNodeInnerType::dynamics_jacobian)
+        .def("dynamics_hessian_fxx", &NewLatBicycleNodeInnerType::dynamics_hessian_fxx)
+
+        .def("get_u_mapped", &NewLatBicycleNodeInnerType::get_u_mapped)
+        .def("get_du_mapped", &NewLatBicycleNodeInnerType::get_du_mapped)
+
+        .def("cost", &NewLatBicycleNodeInnerType::cost)
+        .def("parallel_cost", &NewLatBicycleNodeInnerType::parallel_cost)
+        .def("cost_jacobian", &NewLatBicycleNodeInnerType::cost_jacobian)
+        .def("cost_hessian", &NewLatBicycleNodeInnerType::cost_hessian)
+
+        .def("update_lambda", &NewLatBicycleNodeInnerType::update_lambda)
+        .def("update_mu", &NewLatBicycleNodeInnerType::update_mu)
+        .def("reset_lambda", &NewLatBicycleNodeInnerType::reset_lambda)
+        .def("reset_mu", &NewLatBicycleNodeInnerType::reset_mu)
+        .def("max_constraints_violation", &NewLatBicycleNodeInnerType::max_constraints_violation)
+        .def("update_constraints", &NewLatBicycleNodeInnerType::update_constraints)
         ;
 }
 

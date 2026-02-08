@@ -97,6 +97,19 @@ cc_library(
 )
 
 cc_library(
+    name = "new_lat_bicycle_node_inner",
+    hdrs = [
+        "new_lat_bicycle_node_inner.h",
+    ],
+    copts = ["-O3", "-march=native", "-DEIGEN_VECTORIZE"],
+    deps = [
+        "@eigen",
+        ":new_ilqr_node",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+cc_library(
     name = "parallel_compution_function",
     hdrs = [
         "parallel_compution_function.h",
@@ -117,6 +130,7 @@ cc_library(
     deps = [
         ":new_bicycle_node",
         ":new_lat_bicycle_node",
+        ":new_lat_bicycle_node_inner",
         "@eigen",
     ],
     visibility = ["//visibility:public"],
