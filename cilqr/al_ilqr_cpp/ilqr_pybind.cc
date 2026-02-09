@@ -63,6 +63,8 @@ PYBIND11_MODULE(ilqr_pybind, m) {
 
     bind_new_ilqr_node<4, 1>(m, "ILQRNode4_1");
 
+    bind_new_lat_bicycle_node_inner<LinearConstraints<4, 1, 10>>(m, "NewLatBicycleNodeLinearConstraints4_1_10");
+
     bind_new_bicycle_node<BoxConstraints<6, 2>>(m, "NewBicycleNodeBoxConstraints6_2");
 
     bind_new_bicycle_node<QuadraticConstraints<6, 2, 5>>(m, "NewBicycleNodeQuadraticConstraints6_2_5");
